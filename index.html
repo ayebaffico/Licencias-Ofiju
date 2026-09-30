@@ -269,7 +269,7 @@ function pintarResumen(){
 function pintarLista(){
   const ls = [...db.licencias].sort((a,b)=> b.desde.localeCompare(a.desde));
   if(!ls.length){ $("lista").innerHTML = `<div class="empty">Sin licencias cargadas. Completá el formulario para registrar la primera.</div>`; return; }
-  $("lista").innerHTML = `<table><thead><tr><th>Pedido</th><th>Agente</th><th>Tipo</th><th>N° INODI</th><th>Desde</th><th>Hasta</th><th class="n">Días</th><th>Observación</th><th></th></tr></thead><tbody>` +
+  $("lista").innerHTML = `<table><thead><tr><th>Pedido</th><th>Agente</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th>N° INODI</th><th class="n">Días</th><th>Observación</th><th></th></tr></thead><tbody>` +
     ls.map(l => `<tr><td>${fmt(l.pedido)}</td><td>${esc(l.agente)}</td><td>${esc(l.tipo)}</td><td>${esc(l.inodi||"")}</td><td>${fmt(l.desde)}</td><td>${fmt(l.hasta)}</td><td class="n">${dias(l.desde,l.hasta)}</td><td class="obs">${sanear(l.obs||"")}</td><td><button class="del" data-id="${l.id}" aria-label="Eliminar licencia">Eliminar</button></td></tr>`).join("") +
     `</tbody></table>`;
 }
