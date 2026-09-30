@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registro de licencias</title>
+<style>
+:root{--bg:#f3f5f4;--card:#fff;--ink:#1d2b2a;--mute:#5d6d6b;--line:#d5dcda;--accent:#1f5f5b;--accent-ink:#fff;--danger:#a63d2f;--soft:#e3eeec;--hoy:#fff1b8;--hoy-h:#e8b923}
+@media (prefers-color-scheme:dark){:root{--bg:#141a19;--card:#1c2423;--ink:#e6eeec;--mute:#93a5a2;--line:#2f3b3a;--accent:#5fb3ac;--accent-ink:#0d1716;--danger:#e57f70;--soft:#243231;--hoy:#4a4020;--hoy-h:#e8b923}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
+header{padding:28px 20px 8px;max-width:1100px;margin:0 auto}
+h1{margin:0;font-size:1.7rem;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--mute)}
+main{max-width:1100px;margin:0 auto;padding:20px 20px 48px}
+.vista{display:grid;gap:20px;grid-template-columns:1fr 1fr}
+.vista[hidden]{display:none}
+#v-pedido{grid-template-columns:minmax(0,560px)}
+.tabs{max-width:1100px;margin:12px auto 0;padding:0 20px;display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{background:transparent;color:var(--mute);border:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px}
+section.full{grid-column:1/-1}
+h2{margin:0 0 14px;font-size:1.1rem}
+label{display:block;font-size:.85rem;color:var(--mute);margin-bottom:4px}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.field{margin-bottom:12px}
+button{padding:9px 14px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:6px;font:inherit;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button.del{background:transparent;border-color:transparent;color:var(--danger);padding:4px 8px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.days{font-size:.9rem;color:var(--mute);margin:-4px 0 12px}
+.msg{min-height:1.3em;font-size:.88rem;color:var(--danger);margin-top:8px}
+.msg.ok{color:var(--accent)}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-weight:600;background:var(--soft)}
+td.n,th.n{text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:6px;max-height:160px;overflow:auto;margin-top:10px}
+button.edit{background:transparent;border-color:transparent;color:var(--accent);padding:4px 6px}
+.chip{background:var(--soft);border-radius:14px;padding:3px 4px 3px 12px;font-size:.85rem;display:flex;align-items:center;gap:2px}
+.empty{color:var(--mute);padding:10px 0}
+#grilla table{width:auto;min-width:100%}
+#grilla th,#grilla td{padding:4px 0;text-align:center;min-width:30px;font-size:.8rem}
+#grilla th:first-child,#grilla td:first-child{position:sticky;left:0;background:var(--card);text-align:left;padding:4px 12px;min-width:170px;z-index:1}
+#grilla td.fin{background:rgba(128,128,128,.12)}
+#grilla td.hoy{background:var(--hoy)}
+#grilla th.hoy{background:var(--hoy-h);color:#1d2b2a}
+#grilla th.dia{cursor:pointer}
+#grilla th.sel{outline:2px solid var(--accent);outline-offset:-2px}
+#grilla td.lic{color:#fff;font-weight:600;border-left:1px solid var(--card)}
+#grilla td.lic.hoy{box-shadow:inset 0 0 0 2px var(--hoy-h)}
+.leyenda{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:.85rem;color:var(--mute)}
+.leyenda i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.mes{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
+.mes input{width:auto}
+.det{margin:0 0 14px;padding:12px 14px;background:var(--soft);border-radius:6px}
+.det strong{display:block;margin-bottom:4px}
+@media (max-width:800px){.vista,#v-pedido{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Registro de licencias</h1>
+  <p>Cargá los pedidos y consultá los días gozados por agente. Los datos se guardan en este navegador.</p>
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" data-v="pedido">Nuevo pedido</button>
+  <button role="tab" data-v="dia">Licencias por día</button>
+  <button role="tab" data-v="datos">Resumen y licencias</button>
+  <button role="tab" data-v="config">Configuración</button>
+</nav>
+<main>
+<div class="vista" id="v-pedido">
+  <section>
+    <h2>Nuevo pedido de licencia</h2>
+    <div class="field"><label for="fPedido">Fecha del pedido</label><input type="date" id="fPedido"></div>
+    <div class="field"><label for="fAgente">Agente (apellido y nombre)</label><select id="fAgente"></select></div>
+    <div class="field"><label for="fTipo">Tipo de licencia</label><select id="fTipo"></select></div>
+    <div class="row">
+      <div><label for="fDesde">Desde</label><input type="date" id="fDesde"></div>
+      <div><label for="fHasta">Hasta</label><input type="date" id="fHasta"></div>
+    </div>
+    <div class="days" id="dias"></div>
+    <button id="btnGuardar">Guardar licencia</button>
+    <div class="msg" id="msg" role="status"></div>
+  </section>
+</div>
+
+<div class="vista" id="v-config" hidden>
+  <section>
+    <h2>Nómina de agentes</h2>
+    <label for="fNuevo">Agregar agente</label>
+    <div class="bar" style="margin-top:0">
+      <input id="fNuevo" placeholder="Apellido, Nombre" style="flex:1;min-width:0">
+      <button id="btnAgregar">Agregar</button>
+    </div>
+    <div class="field" style="margin-top:14px">
+      <label for="fLote">Pegar nómina completa (un agente por línea; reemplaza la lista actual)</label>
+      <textarea id="fLote" rows="3" placeholder="Pérez, Juan&#10;Gómez, María"></textarea>
+    </div>
+    <button class="ghost" id="btnLote">Reemplazar nómina</button>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section>
+    <h2>Tipos de licencia</h2>
+    <div class="bar" style="margin-top:0;max-width:520px">
+      <input id="fNuevoTipo" placeholder="Nuevo tipo de licencia" style="flex:1;min-width:0" aria-label="Nuevo tipo de licencia">
+      <button id="btnAgregarTipo">Agregar</button>
+    </div>
+    <div class="chips" id="chipsTipos"></div>
+    <p class="days">Con ✎ renombrás un tipo (se actualizan también las licencias ya cargadas). Al quitar un tipo, las licencias registradas con ese nombre se conservan.</p>
+  </section>
+
+</div>
+
+<div class="vista" id="v-dia" hidden>
+  <section class="full">
+    <h2>Licencias por día</h2>
+    <div class="mes">
+      <div><label for="fMes">Mes</label><input type="month" id="fMes"></div>
+      <button class="ghost" id="btnMesAnt" aria-label="Mes anterior">◀</button>
+      <button class="ghost" id="btnHoy">Hoy</button>
+      <button class="ghost" id="btnMesSig" aria-label="Mes siguiente">▶</button>
+    </div>
+    <div class="det" id="detalleDia" aria-live="polite"></div>
+    <div class="wrap" id="grilla"></div>
+    <div class="leyenda" id="leyenda"></div>
+    <p class="days">El día de hoy está resaltado en amarillo. Tocá el número de un día para ver quiénes están de licencia. Los fines de semana se muestran en gris.</p>
+  </section>
+</div>
+
+<div class="vista" id="v-datos" hidden>
+  <section class="full">
+    <h2>Total de días de licencia gozados por agente</h2>
+    <div class="row" style="max-width:520px">
+      <div><label for="fAnio">Año</label><select id="fAnio"></select></div>
+      <div><label for="fFiltroAg">Agente</label><select id="fFiltroAg"></select></div>
+    </div>
+    <div class="wrap" id="resumen"></div>
+    <p class="days">Se cuentan días corridos entre "desde" y "hasta" (ambos incluidos). Solo se suman los días ya transcurridos hasta hoy; los pedidos futuros figuran como programados.</p>
+  </section>
+
+  <section class="full">
+    <h2>Licencias registradas</h2>
+    <div class="wrap" id="lista"></div>
+    <div class="bar">
+      <button class="ghost" id="btnCsv">Exportar CSV</button>
+      <button class="ghost" id="btnResp">Descargar copia (JSON)</button>
+      <button class="ghost" id="btnImp">Restaurar copia</button>
+      <input type="file" id="fileImp" accept=".json" hidden>
+    </div>
+  </section>
+</div>
+</main>
+
+<script>
+// ====== CONFIGURACIÓN: editá estas listas para adaptarlas a tu organismo ======
+const TIPOS_INICIALES = ["Anual ordinaria","Enfermedad","Familiar enfermo","Examen","Maternidad / Paternidad","Duelo","Matrimonio","Estudio","Asuntos particulares","Otra"];
+const AGENTES_INICIALES = ["Pérez, Juan","Gómez, María","Rodríguez, Carlos"];
+// ==============================================================================
+
+const $ = id => document.getElementById(id);
+const KEY = "licencias_app_v1";
+let db = { agentes: [], licencias: [] };
+
+function cargar(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    db = raw ? JSON.parse(raw) : { agentes: [...AGENTES_INICIALES], licencias: [] };
+  }catch(e){ db = { agentes: [...AGENTES_INICIALES], licencias: [] }; }
+  if(!Array.isArray(db.tipos)) db.tipos = [...TIPOS_INICIALES];
+}
+function guardar(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ aviso("No se pudo guardar en el navegador.", false); } }
+
+const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const toDate = s => new Date(s + "T00:00:00");
+const dias = (d,h) => Math.round((toDate(h) - toDate(d)) / 864e5) + 1;
+const fmt = s => s ? s.split("-").reverse().join("/") : "";
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ordenar = a => a.sort((x,y) => x.localeCompare(y,"es"));
+
+function aviso(t, ok){ const m=$("msg"); m.textContent=t; m.className="msg"+(ok?" ok":""); }
+
+// Días gozados hasta hoy dentro de un año dado
+function diasGozados(l, anio){
+  const ini = Math.max(toDate(l.desde), toDate(anio+"-01-01"));
+  const fin = Math.min(toDate(l.hasta), toDate(anio+"-12-31"), toDate(hoyISO()));
+  return fin >= ini ? Math.round((fin - ini)/864e5)+1 : 0;
+}
+function diasProgramados(l, anio){
+  const ini = Math.max(toDate(l.desde), toDate(anio+"-01-01"), new Date(toDate(hoyISO()).getTime()+864e5));
+  const fin = Math.min(toDate(l.hasta), toDate(anio+"-12-31"));
+  return fin >= ini ? Math.round((fin - ini)/864e5)+1 : 0;
+}
+
+function pintarAgentes(){
+  ordenar(db.agentes);
+  const opts = db.agentes.map(a => `<option>${esc(a)}</option>`).join("");
+  const sel = $("fAgente").value;
+  $("fAgente").innerHTML = opts;
+  if(db.agentes.includes(sel)) $("fAgente").value = sel;
+  const f = $("fFiltroAg").value;
+  $("fFiltroAg").innerHTML = `<option value="">Todos</option>` + opts;
+  if(db.agentes.includes(f)) $("fFiltroAg").value = f;
+  $("chips").innerHTML = db.agentes.length
+    ? db.agentes.map((a,i) => `<span class="chip">${esc(a)}<button class="del" data-i="${i}" aria-label="Quitar ${esc(a)}">✕</button></span>`).join("")
+    : `<div class="empty">Todavía no hay agentes. Agregá el primero.</div>`;
+}
+
+function pintarTipos(){
+  const sel = $("fTipo").value;
+  $("fTipo").innerHTML = db.tipos.map(t => `<option>${esc(t)}</option>`).join("");
+  if(db.tipos.includes(sel)) $("fTipo").value = sel;
+  $("chipsTipos").innerHTML = db.tipos.length
+    ? db.tipos.map((t,i) => `<span class="chip">${esc(t)}<button class="edit" data-i="${i}" aria-label="Renombrar ${esc(t)}">✎</button><button class="del" data-i="${i}" aria-label="Quitar ${esc(t)}">✕</button></span>`).join("")
+    : `<div class="empty">No hay tipos de licencia. Agregá el primero.</div>`;
+}
+
+function pintarAnios(){
+  const set = new Set([new Date().getFullYear()]);
+  db.licencias.forEach(l => { set.add(+l.desde.slice(0,4)); set.add(+l.hasta.slice(0,4)); });
+  const anios = [...set].sort((a,b)=>b-a);
+  const actual = $("fAnio").value || String(new Date().getFullYear());
+  $("fAnio").innerHTML = anios.map(a => `<option>${a}</option>`).join("");
+  $("fAnio").value = anios.map(String).includes(actual) ? actual : String(anios[0]);
+}
+
+function pintarResumen(){
+  const anio = +$("fAnio").value, ag = $("fFiltroAg").value;
+  const agentes = ag ? [ag] : db.agentes;
+  const tipos = [...new Set([...db.tipos, ...db.licencias.map(l=>l.tipo)])].filter(t => db.licencias.some(l => l.tipo===t));
+  let html = `<table><thead><tr><th>Agente</th>${tipos.map(t=>`<th class="n">${esc(t)}</th>`).join("")}<th class="n">Total gozados</th><th class="n">Programados</th></tr></thead><tbody>`;
+  let hay = false;
+  agentes.forEach(a => {
+    const ls = db.licencias.filter(l => l.agente===a);
+    const porTipo = tipos.map(t => ls.filter(l=>l.tipo===t).reduce((s,l)=>s+diasGozados(l,anio),0));
+    const total = ls.reduce((s,l)=>s+diasGozados(l,anio),0);
+    const prog = ls.reduce((s,l)=>s+diasProgramados(l,anio),0);
+    if(!ag && total===0 && prog===0) return;
+    hay = true;
+    html += `<tr><td>${esc(a)}</td>${porTipo.map(n=>`<td class="n">${n}</td>`).join("")}<td class="n"><strong>${total}</strong></td><td class="n">${prog}</td></tr>`;
+  });
+  html += "</tbody></table>";
+  $("resumen").innerHTML = hay ? html : `<div class="empty">No hay licencias registradas para ${anio}.</div>`;
+}
+
+function pintarLista(){
+  const ls = [...db.licencias].sort((a,b)=> b.desde.localeCompare(a.desde));
+  if(!ls.length){ $("lista").innerHTML = `<div class="empty">Sin licencias cargadas. Completá el formulario para registrar la primera.</div>`; return; }
+  $("lista").innerHTML = `<table><thead><tr><th>Pedido</th><th>Agente</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th class="n">Días</th><th></th></tr></thead><tbody>` +
+    ls.map(l => `<tr><td>${fmt(l.pedido)}</td><td>${esc(l.agente)}</td><td>${esc(l.tipo)}</td><td>${fmt(l.desde)}</td><td>${fmt(l.hasta)}</td><td class="n">${dias(l.desde,l.hasta)}</td><td><button class="del" data-id="${l.id}" aria-label="Eliminar licencia">Eliminar</button></td></tr>`).join("") +
+    `</tbody></table>`;
+}
+
+const DIAS_SEM = ["D","L","M","M","J","V","S"];
+const NOMBRE_DIA = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+let diaSel = hoyISO();
+const colorTipo = t => `hsl(${[...t].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7)},50%,38%)`;
+const iso = (y,m,d) => `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+
+function pintarDia(){
+  const [y,m] = ($("fMes").value || hoyISO().slice(0,7)).split("-").map(Number);
+  const n = new Date(y, m, 0).getDate(), hoy = hoyISO();
+  const agentes = [...new Set([...db.agentes, ...db.licencias.map(l=>l.agente)])].sort((a,b)=>a.localeCompare(b,"es"));
+  const usados = new Set();
+  let h = `<table><thead><tr><th>Agente</th>`;
+  for(let d=1; d<=n; d++){
+    const f = iso(y,m,d);
+    h += `<th class="dia${f===hoy?" hoy":""}${f===diaSel?" sel":""}" data-f="${f}" title="${fmt(f)}">${d}<br>${DIAS_SEM[new Date(y,m-1,d).getDay()]}</th>`;
+  }
+  h += `</tr></thead><tbody>`;
+  agentes.forEach(a => {
+    const ls = db.licencias.filter(l => l.agente===a);
+    h += `<tr><td>${esc(a)}</td>`;
+    for(let d=1; d<=n; d++){
+      const f = iso(y,m,d), wd = new Date(y,m-1,d).getDay();
+      const l = ls.find(x => f>=x.desde && f<=x.hasta);
+      const cls = [wd===0||wd===6?"fin":"", f===hoy?"hoy":""].join(" ");
+      if(l){
+        usados.add(l.tipo);
+        h += `<td class="lic ${cls}" style="background:${colorTipo(l.tipo)}" title="${esc(a)}: ${esc(l.tipo)} (${fmt(l.desde)} al ${fmt(l.hasta)})">${esc(l.tipo.charAt(0).toUpperCase())}</td>`;
+      }else h += `<td class="${cls}"></td>`;
+    }
+    h += `</tr>`;
+  });
+  h += `</tbody></table>`;
+  $("grilla").innerHTML = agentes.length ? h : `<div class="empty">No hay agentes cargados. Agregalos en Configuración.</div>`;
+  $("leyenda").innerHTML = [...usados].map(t => `<span><i style="background:${colorTipo(t)}"></i>${esc(t.charAt(0).toUpperCase())} = ${esc(t)}</span>`).join("");
+
+  const en = db.licencias.filter(l => diaSel>=l.desde && diaSel<=l.hasta).sort((a,b)=>a.agente.localeCompare(b.agente,"es"));
+  const dt = toDate(diaSel);
+  const titulo = `${NOMBRE_DIA[dt.getDay()]} ${fmt(diaSel)}${diaSel===hoy?" (hoy)":""}`;
+  $("detalleDia").innerHTML = `<strong>${titulo}: ${en.length ? en.length+" agente(s) de licencia" : "nadie de licencia"}</strong>` +
+    en.map(l => `${esc(l.agente)} — ${esc(l.tipo)}, del ${fmt(l.desde)} al ${fmt(l.hasta)}`).join("<br>");
+}
+
+function todo(){ pintarDia(); pintarAgentes(); pintarTipos(); pintarAnios(); pintarResumen(); pintarLista(); }
+
+function actualizarDias(){
+  const d=$("fDesde").value, h=$("fHasta").value;
+  $("dias").textContent = d && h && h>=d ? `Duración: ${dias(d,h)} día(s) corridos` : "";
+}
+
+// ---- Eventos ----
+$("fDesde").addEventListener("change", ()=>{ if(!$("fHasta").value || $("fHasta").value<$("fDesde").value) $("fHasta").value=$("fDesde").value; actualizarDias(); });
+$("fHasta").addEventListener("change", actualizarDias);
+
+$("btnGuardar").onclick = () => {
+  if(!db.agentes.length || !db.tipos.length) return aviso("Primero cargá agentes y tipos de licencia en Configuración.", false);
+  const l = { id: Date.now()+Math.random().toString(36).slice(2,6), pedido:$("fPedido").value, agente:$("fAgente").value, tipo:$("fTipo").value, desde:$("fDesde").value, hasta:$("fHasta").value };
+  if(!l.pedido||!l.agente||!l.tipo||!l.desde||!l.hasta) return aviso("Completá todos los campos.", false);
+  if(l.hasta < l.desde) return aviso("La fecha “hasta” no puede ser anterior a “desde”.", false);
+  const solapa = db.licencias.find(x => x.agente===l.agente && l.desde<=x.hasta && l.hasta>=x.desde);
+  if(solapa && !confirm(`${l.agente} ya tiene una licencia del ${fmt(solapa.desde)} al ${fmt(solapa.hasta)} que se superpone. ¿Guardar igual?`)) return;
+  db.licencias.push(l); guardar(); todo();
+  $("fDesde").value=$("fHasta").value=""; actualizarDias();
+  aviso("Licencia guardada.", true);
+};
+
+$("btnAgregar").onclick = () => {
+  const n = $("fNuevo").value.trim();
+  if(!n) return;
+  if(db.agentes.some(a=>a.toLowerCase()===n.toLowerCase())) return alert("Ese agente ya está en la nómina.");
+  db.agentes.push(n); $("fNuevo").value=""; guardar(); todo();
+};
+$("fNuevo").addEventListener("keydown", e => { if(e.key==="Enter") $("btnAgregar").click(); });
+
+$("btnLote").onclick = () => {
+  const nuevos = [...new Set($("fLote").value.split("\n").map(s=>s.trim()).filter(Boolean))];
+  if(!nuevos.length) return;
+  if(!confirm(`Se reemplazará la nómina por ${nuevos.length} agente(s). Las licencias ya cargadas se conservan. ¿Continuar?`)) return;
+  db.agentes = nuevos; $("fLote").value=""; guardar(); todo();
+};
+
+$("btnAgregarTipo").onclick = () => {
+  const n = $("fNuevoTipo").value.trim();
+  if(!n) return;
+  if(db.tipos.some(t=>t.toLowerCase()===n.toLowerCase())) return alert("Ese tipo de licencia ya existe.");
+  db.tipos.push(n); $("fNuevoTipo").value=""; guardar(); todo();
+};
+$("fNuevoTipo").addEventListener("keydown", e => { if(e.key==="Enter") $("btnAgregarTipo").click(); });
+
+$("chipsTipos").onclick = e => {
+  const b = e.target.closest("button"); if(!b || b.dataset.i===undefined) return;
+  const i = +b.dataset.i, viejo = db.tipos[i];
+  if(b.classList.contains("edit")){
+    const nuevo = (prompt("Nuevo nombre para el tipo de licencia:", viejo) || "").trim();
+    if(!nuevo || nuevo===viejo) return;
+    if(db.tipos.some((t,j)=>j!==i && t.toLowerCase()===nuevo.toLowerCase())) return alert("Ya existe un tipo con ese nombre.");
+    db.tipos[i] = nuevo;
+    db.licencias.forEach(l => { if(l.tipo===viejo) l.tipo = nuevo; });
+  }else{
+    const usos = db.licencias.filter(l=>l.tipo===viejo).length;
+    if(!confirm(usos ? `“${viejo}” tiene ${usos} licencia(s) cargadas. Se quitará de la lista pero esas licencias se conservan. ¿Continuar?` : `¿Quitar “${viejo}”?`)) return;
+    db.tipos.splice(i,1);
+  }
+  guardar(); todo();
+};
+
+$("chips").onclick = e => {
+  const i = e.target.dataset.i; if(i===undefined) return;
+  const a = db.agentes[i];
+  const tiene = db.licencias.some(l=>l.agente===a);
+  if(!confirm(tiene ? `${a} tiene licencias cargadas. Se quitará de la lista pero sus licencias siguen registradas. ¿Continuar?` : `¿Quitar a ${a} de la nómina?`)) return;
+  db.agentes.splice(i,1); guardar(); todo();
+};
+
+$("lista").onclick = e => {
+  const id = e.target.dataset.id; if(!id) return;
+  if(!confirm("¿Eliminar esta licencia?")) return;
+  db.licencias = db.licencias.filter(l=>l.id!==id); guardar(); todo();
+};
+
+$("fAnio").onchange = pintarResumen;
+$("fFiltroAg").onchange = pintarResumen;
+
+function descargar(nombre, contenido, tipo){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([contenido],{type:tipo}));
+  a.download = nombre; a.click(); URL.revokeObjectURL(a.href);
+}
+$("btnCsv").onclick = () => {
+  const filas = [["Fecha pedido","Agente","Tipo","Desde","Hasta","Días"]].concat(
+    [...db.licencias].sort((a,b)=>a.agente.localeCompare(b.agente,"es")||a.desde.localeCompare(b.desde))
+      .map(l=>[fmt(l.pedido),l.agente,l.tipo,fmt(l.desde),fmt(l.hasta),dias(l.desde,l.hasta)]));
+  descargar("licencias.csv", "\ufeff"+filas.map(f=>f.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(";")).join("\n"), "text/csv");
+};
+$("btnResp").onclick = () => descargar("copia-licencias.json", JSON.stringify(db,null,2), "application/json");
+$("btnImp").onclick = () => $("fileImp").click();
+$("fileImp").onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if(!Array.isArray(d.agentes)||!Array.isArray(d.licencias)) throw 0;
+      if(!confirm("Se reemplazarán todos los datos actuales por los de la copia. ¿Continuar?")) return;
+      if(!Array.isArray(d.tipos)) d.tipos = [...TIPOS_INICIALES];
+      db = d; guardar(); todo();
+    }catch(_){ alert("El archivo no es una copia válida."); }
+  };
+  r.readAsText(f); e.target.value="";
+};
+
+// ---- Licencias por día ----
+function moverMes(delta){
+  const [y,m] = $("fMes").value.split("-").map(Number);
+  const d = new Date(y, m-1+delta, 1);
+  $("fMes").value = iso(d.getFullYear(), d.getMonth()+1, 1).slice(0,7);
+  pintarDia();
+}
+$("fMes").onchange = () => { if($("fMes").value) pintarDia(); };
+$("btnMesAnt").onclick = () => moverMes(-1);
+$("btnMesSig").onclick = () => moverMes(1);
+$("btnHoy").onclick = () => { $("fMes").value = hoyISO().slice(0,7); diaSel = hoyISO(); pintarDia(); };
+$("grilla").onclick = e => { const th = e.target.closest("th[data-f]"); if(th){ diaSel = th.dataset.f; pintarDia(); } };
+
+// ---- Navegación ----
+function vista(n){
+  document.querySelectorAll(".vista").forEach(v => v.hidden = v.id !== "v-"+n);
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.v===n));
+}
+document.querySelector(".tabs").onclick = e => { const b = e.target.closest("button"); if(b) vista(b.dataset.v); };
+
+// ---- Inicio ----
+$("fPedido").value = hoyISO();
+$("fMes").value = hoyISO().slice(0,7);
+cargar(); todo(); vista("pedido");
+</script>
+</body>
+</html>
