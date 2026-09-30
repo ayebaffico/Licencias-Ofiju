@@ -59,6 +59,13 @@ button.edit{background:transparent;border-color:transparent;color:var(--accent);
 .mes input{width:auto}
 .det{margin:0 0 14px;padding:12px 14px;background:var(--soft);border-radius:6px}
 .det strong{display:block;margin-bottom:4px}
+#fObs{min-height:96px;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);overflow-wrap:anywhere;white-space:pre-wrap}
+#fObs:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+#fObs:empty::before{content:attr(data-ph);color:var(--mute)}
+.tools{display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.tools input[type=color]{width:42px;height:36px;padding:2px;cursor:pointer}
+.tools button{padding:6px 10px;font-size:.85rem}
+td.obs{white-space:normal;min-width:180px;max-width:320px}
 @media (max-width:800px){.vista,#v-pedido{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head>
@@ -80,11 +87,21 @@ button.edit{background:transparent;border-color:transparent;color:var(--accent);
     <div class="field"><label for="fPedido">Fecha del pedido</label><input type="date" id="fPedido"></div>
     <div class="field"><label for="fAgente">Agente (apellido y nombre)</label><select id="fAgente"></select></div>
     <div class="field"><label for="fTipo">Tipo de licencia</label><select id="fTipo"></select></div>
+    <div class="field"><label for="fInodi">N° INODI (opcional)</label><input type="number" id="fInodi" min="0" step="1" inputmode="numeric"></div>
     <div class="row">
       <div><label for="fDesde">Desde</label><input type="date" id="fDesde"></div>
       <div><label for="fHasta">Hasta</label><input type="date" id="fHasta"></div>
     </div>
     <div class="days" id="dias"></div>
+    <div class="field">
+      <label id="lObs">Observación (opcional)</label>
+      <div class="tools">
+        <input type="color" id="oColor" value="#c0392b" aria-label="Color de letra">
+        <button type="button" class="ghost" id="btnColor">Aplicar color al texto seleccionado</button>
+        <button type="button" class="ghost" id="btnSinFormato">Quitar formato</button>
+      </div>
+      <div id="fObs" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="lObs" data-ph="Escribí una observación. Seleccioná parte del texto para cambiarle el color."></div>
+    </div>
     <button id="btnGuardar">Guardar licencia</button>
     <div class="msg" id="msg" role="status"></div>
   </section>
@@ -252,8 +269,8 @@ function pintarResumen(){
 function pintarLista(){
   const ls = [...db.licencias].sort((a,b)=> b.desde.localeCompare(a.desde));
   if(!ls.length){ $("lista").innerHTML = `<div class="empty">Sin licencias cargadas. Completá el formulario para registrar la primera.</div>`; return; }
-  $("lista").innerHTML = `<table><thead><tr><th>Pedido</th><th>Agente</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th class="n">Días</th><th></th></tr></thead><tbody>` +
-    ls.map(l => `<tr><td>${fmt(l.pedido)}</td><td>${esc(l.agente)}</td><td>${esc(l.tipo)}</td><td>${fmt(l.desde)}</td><td>${fmt(l.hasta)}</td><td class="n">${dias(l.desde,l.hasta)}</td><td><button class="del" data-id="${l.id}" aria-label="Eliminar licencia">Eliminar</button></td></tr>`).join("") +
+  $("lista").innerHTML = `<table><thead><tr><th>Pedido</th><th>Agente</th><th>Tipo</th><th>N° INODI</th><th>Desde</th><th>Hasta</th><th class="n">Días</th><th>Observación</th><th></th></tr></thead><tbody>` +
+    ls.map(l => `<tr><td>${fmt(l.pedido)}</td><td>${esc(l.agente)}</td><td>${esc(l.tipo)}</td><td>${esc(l.inodi||"")}</td><td>${fmt(l.desde)}</td><td>${fmt(l.hasta)}</td><td class="n">${dias(l.desde,l.hasta)}</td><td class="obs">${sanear(l.obs||"")}</td><td><button class="del" data-id="${l.id}" aria-label="Eliminar licencia">Eliminar</button></td></tr>`).join("") +
     `</tbody></table>`;
 }
 
@@ -312,13 +329,13 @@ $("fHasta").addEventListener("change", actualizarDias);
 
 $("btnGuardar").onclick = () => {
   if(!db.agentes.length || !db.tipos.length) return aviso("Primero cargá agentes y tipos de licencia en Configuración.", false);
-  const l = { id: Date.now()+Math.random().toString(36).slice(2,6), pedido:$("fPedido").value, agente:$("fAgente").value, tipo:$("fTipo").value, desde:$("fDesde").value, hasta:$("fHasta").value };
+  const l = { id: Date.now()+Math.random().toString(36).slice(2,6), pedido:$("fPedido").value, agente:$("fAgente").value, tipo:$("fTipo").value, desde:$("fDesde").value, hasta:$("fHasta").value, inodi:$("fInodi").value.trim(), obs:limpiar($("fObs")) };
   if(!l.pedido||!l.agente||!l.tipo||!l.desde||!l.hasta) return aviso("Completá todos los campos.", false);
   if(l.hasta < l.desde) return aviso("La fecha “hasta” no puede ser anterior a “desde”.", false);
   const solapa = db.licencias.find(x => x.agente===l.agente && l.desde<=x.hasta && l.hasta>=x.desde);
   if(solapa && !confirm(`${l.agente} ya tiene una licencia del ${fmt(solapa.desde)} al ${fmt(solapa.hasta)} que se superpone. ¿Guardar igual?`)) return;
   db.licencias.push(l); guardar(); todo();
-  $("fDesde").value=$("fHasta").value=""; actualizarDias();
+  $("fDesde").value=$("fHasta").value=$("fInodi").value=""; $("fObs").innerHTML=""; actualizarDias();
   aviso("Licencia guardada.", true);
 };
 
@@ -385,9 +402,9 @@ function descargar(nombre, contenido, tipo){
   a.download = nombre; a.click(); URL.revokeObjectURL(a.href);
 }
 $("btnCsv").onclick = () => {
-  const filas = [["Fecha pedido","Agente","Tipo","Desde","Hasta","Días"]].concat(
+  const filas = [["Fecha pedido","Agente","Tipo","Desde","Hasta","Días","N° INODI","Observación"]].concat(
     [...db.licencias].sort((a,b)=>a.agente.localeCompare(b.agente,"es")||a.desde.localeCompare(b.desde))
-      .map(l=>[fmt(l.pedido),l.agente,l.tipo,fmt(l.desde),fmt(l.hasta),dias(l.desde,l.hasta)]));
+      .map(l=>[fmt(l.pedido),l.agente,l.tipo,fmt(l.desde),fmt(l.hasta),dias(l.desde,l.hasta),l.inodi||"",plano(l.obs||"")]));
   descargar("licencias.csv", "\ufeff"+filas.map(f=>f.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(";")).join("\n"), "text/csv");
 };
 $("btnResp").onclick = () => descargar("copia-licencias.json", JSON.stringify(db,null,2), "application/json");
@@ -406,6 +423,46 @@ $("fileImp").onchange = e => {
   };
   r.readAsText(f); e.target.value="";
 };
+
+// ---- Observación con color ----
+// Convierte el contenido en HTML seguro: solo texto, saltos de línea y color de letra.
+function limpiar(nodo){
+  let out = "";
+  nodo.childNodes.forEach(n => {
+    if(n.nodeType === 3){ out += esc(n.textContent); return; }
+    if(n.nodeType !== 1) return;
+    const t = n.tagName;
+    if(t === "BR"){ out += "<br>"; return; }
+    let inner = limpiar(n);
+    const c = ((t==="FONT" && n.getAttribute("color")) || n.style.color || "").trim();
+    if(c && /^(#[0-9a-f]{3,8}|rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(,\s*[\d.]+\s*)?\)|[a-z]+)$/i.test(c)) inner = `<span style="color:${c}">${inner}</span>`;
+    if(t==="DIV" || t==="P"){ if(out && !out.endsWith("<br>")) out += "<br>"; }
+    out += inner;
+  });
+  return out.replace(/(<br>)+$/,"");
+}
+const sanear = html => limpiar(new DOMParser().parseFromString(html || "", "text/html").body);
+const plano = html => new DOMParser().parseFromString(sanear(html).replace(/<br>/g," / "), "text/html").body.textContent;
+
+let rangoObs = null;
+const guardarRango = () => {
+  const sel = getSelection();
+  if(sel.rangeCount && $("fObs").contains(sel.anchorNode)) rangoObs = sel.getRangeAt(0).cloneRange();
+};
+["keyup","mouseup","blur","input"].forEach(ev => $("fObs").addEventListener(ev, guardarRango));
+function formatoObs(cmd, valor){
+  $("fObs").focus();
+  if(rangoObs){ const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rangoObs); }
+  document.execCommand("styleWithCSS", false, true);
+  document.execCommand(cmd, false, valor);
+  guardarRango();
+}
+$("btnColor").onclick = () => formatoObs("foreColor", $("oColor").value);
+$("btnSinFormato").onclick = () => formatoObs("removeFormat");
+$("fObs").addEventListener("paste", e => {
+  e.preventDefault();
+  document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
+});
 
 // ---- Licencias por día ----
 function moverMes(delta){
