@@ -66,6 +66,14 @@ button.edit{background:transparent;border-color:transparent;color:var(--accent);
 .tools input[type=color]{width:42px;height:36px;padding:2px;cursor:pointer}
 .tools button{padding:6px 10px;font-size:.85rem}
 td.obs{white-space:normal;min-width:180px;max-width:320px}
+#saldos th small,#saldos td small{display:block;font-weight:400;color:var(--mute);font-size:.74rem;white-space:nowrap}
+#saldos td strong{font-size:1.1rem}
+#saldos td.vence{background:var(--hoy)}
+#saldos th.vence{background:var(--hoy-h);color:#1d2b2a}
+#saldos th.vence small{color:#1d2b2a}
+#saldos td.neg strong{color:var(--danger)}
+#tablaIni input{width:90px}
+details summary{cursor:pointer;font-weight:600}
 @media (max-width:800px){.vista,#v-pedido{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head>
@@ -77,6 +85,7 @@ td.obs{white-space:normal;min-width:180px;max-width:320px}
 <nav class="tabs" role="tablist">
   <button role="tab" data-v="pedido">Nuevo pedido</button>
   <button role="tab" data-v="dia">Licencias por día</button>
+  <button role="tab" data-v="saldos">Saldos de licencias</button>
   <button role="tab" data-v="datos">Resumen y licencias</button>
   <button role="tab" data-v="config">Configuración</button>
 </nav>
@@ -90,9 +99,9 @@ td.obs{white-space:normal;min-width:180px;max-width:320px}
     <div class="row">
       <div><label for="fDesde">Desde</label><input type="date" id="fDesde"></div>
       <div><label for="fHasta">Hasta</label><input type="date" id="fHasta"></div>
-    <div class="field"><label for="fInodi">N° INODI (opcional)</label><input type="number" id="fInodi" min="0" step="1" inputmode="numeric"></div>
     </div>
     <div class="days" id="dias"></div>
+    <div class="field"><label for="fInodi">N° INODI (opcional)</label><input type="number" id="fInodi" min="0" step="1" inputmode="numeric"></div>
     <div class="field">
       <label id="lObs">Observación (opcional)</label>
       <div class="tools">
@@ -151,6 +160,28 @@ td.obs{white-space:normal;min-width:180px;max-width:320px}
   </section>
 </div>
 
+<div class="vista" id="v-saldos" hidden>
+  <section class="full">
+    <h2>Saldos de licencias por agente</h2>
+    <p class="days" id="saldoFecha"></p>
+    <div class="wrap" id="saldos"></div>
+    <p class="days"><strong>Art. 39 - Asuntos personales:</strong> 6 días por año calendario; el remanente se pierde al 31/12.<br>
+    <strong>FE - Feria extraordinaria:</strong> 14 días que se habilitan en julio; se descuentan los días de FE y de Item 99 - Feria especial; el remanente se pierde al 31/12.<br>
+    <strong>FO - Feria ordinaria:</strong> 31 días por año de licencia, habilitados el 01/01 del año siguiente y con vencimiento el 31/12 del año posterior a su habilitación. Se descuentan los días de FO y de Art. 22 - Feria anual compensatoria, primero del año más antiguo. En amarillo, el saldo que vence este año.</p>
+  </section>
+  <section class="full">
+    <h2>Saldo inicial de Feria ordinaria (carga excepcional)</h2>
+    <details>
+      <summary>Cargar o ver saldos iniciales</summary>
+      <p class="days">Elegí primero la fecha del saldo. Los días de FO y Art. 22 posteriores a esa fecha se descontarán automáticamente de estos saldos; los anteriores se consideran ya incluidos. Un campo en blanco equivale a 31 días sin descuentos previos. Los agentes con el saldo en blanco no se modifican.</p>
+      <div class="field" style="max-width:240px"><label for="fCorte">Saldo al</label><input type="date" id="fCorte"></div>
+      <div class="wrap" id="tablaIni"></div>
+      <div class="bar"><button id="btnGuardarIni">Guardar saldos iniciales</button></div>
+      <div class="msg" id="msgIni" role="status"></div>
+    </details>
+  </section>
+</div>
+
 <div class="vista" id="v-datos" hidden>
   <section class="full">
     <h2>Total de días de licencia gozados por agente</h2>
@@ -177,7 +208,8 @@ td.obs{white-space:normal;min-width:180px;max-width:320px}
 
 <script>
 // ====== CONFIGURACIÓN: editá estas listas para adaptarlas a tu organismo ======
-const TIPOS_INICIALES = ["Anual ordinaria","Enfermedad","Familiar enfermo","Examen","Maternidad / Paternidad","Duelo","Matrimonio","Estudio","Asuntos particulares","Otra"];
+const REQUERIDOS = ["Art. 39 - Asuntos personales","FE - Feria extraordinaria","Item 99 - Feria especial","FO - Feria ordinaria","Art. 22 - Feria anual compensatoria"];
+const TIPOS_INICIALES = [...REQUERIDOS,"Enfermedad","Familiar enfermo","Examen","Maternidad / Paternidad","Duelo","Matrimonio","Estudio","Otra"];
 const AGENTES_INICIALES = ["Pérez, Juan","Gómez, María","Rodríguez, Carlos"];
 // ==============================================================================
 
@@ -190,7 +222,15 @@ function cargar(){
     const raw = localStorage.getItem(KEY);
     db = raw ? JSON.parse(raw) : { agentes: [...AGENTES_INICIALES], licencias: [] };
   }catch(e){ db = { agentes: [...AGENTES_INICIALES], licencias: [] }; }
+  normalizarDB();
+}
+function normalizarDB(){
+  if(!Array.isArray(db.agentes)) db.agentes = [];
+  if(!Array.isArray(db.licencias)) db.licencias = [];
   if(!Array.isArray(db.tipos)) db.tipos = [...TIPOS_INICIALES];
+  if(!db.saldosIni || typeof db.saldosIni !== "object") db.saldosIni = {};
+  // Los tipos que llevan saldo deben existir
+  REQUERIDOS.forEach(r => { if(!db.tipos.some(t => codigo(t) === codigo(r))) db.tipos.push(r); });
 }
 function guardar(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ aviso("No se pudo guardar en el navegador.", false); } }
 
@@ -251,7 +291,7 @@ function pintarResumen(){
   const anio = +$("fAnio").value, ag = $("fFiltroAg").value;
   const agentes = ag ? [ag] : db.agentes;
   const tipos = [...new Set([...db.tipos, ...db.licencias.map(l=>l.tipo)])].filter(t => db.licencias.some(l => l.tipo===t));
-  let html = `<table><thead><tr><th>Agente</th>${tipos.map(t=>`<th class="n">${esc(t)}</th>`).join("")}<th class="n">Total gozados</th><th class="n">Programados</th></tr></thead><tbody>`;
+  let html = `<table><thead><tr><th>Agente</th>${tipos.map(t=>`<th class="n" title="${esc(t)}">${esc(corto(t))}</th>`).join("")}<th class="n">Total gozados</th><th class="n">Programados</th></tr></thead><tbody>`;
   let hay = false;
   agentes.forEach(a => {
     const ls = db.licencias.filter(l => l.agente===a);
@@ -269,8 +309,8 @@ function pintarResumen(){
 function pintarLista(){
   const ls = [...db.licencias].sort((a,b)=> b.desde.localeCompare(a.desde));
   if(!ls.length){ $("lista").innerHTML = `<div class="empty">Sin licencias cargadas. Completá el formulario para registrar la primera.</div>`; return; }
-  $("lista").innerHTML = `<table><thead><tr><th>Pedido</th><th>Agente</th><th>Tipo</th><th>N° INODI</th><th>Desde</th><th>Hasta</th><th class="n">Días</th><th>Observación</th><th></th></tr></thead><tbody>` +
-    ls.map(l => `<tr><td>${fmt(l.pedido)}</td><td>${esc(l.agente)}</td><td>${esc(l.tipo)}</td><td>${esc(l.inodi||"")}</td><td>${fmt(l.desde)}</td><td>${fmt(l.hasta)}</td><td class="n">${dias(l.desde,l.hasta)}</td><td class="obs">${sanear(l.obs||"")}</td><td><button class="del" data-id="${l.id}" aria-label="Eliminar licencia">Eliminar</button></td></tr>`).join("") +
+  $("lista").innerHTML = `<table><thead><tr><th>Pedido</th><th>Agente</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th>N° INODI</th><th class="n">Días</th><th>Observación</th><th></th></tr></thead><tbody>` +
+    ls.map(l => `<tr><td>${fmt(l.pedido)}</td><td>${esc(l.agente)}</td><td>${esc(l.tipo)}</td><td>${fmt(l.desde)}</td><td>${fmt(l.hasta)}</td><td>${esc(l.inodi||"")}</td><td class="n">${dias(l.desde,l.hasta)}</td><td class="obs">${sanear(l.obs||"")}</td><td><button class="del" data-id="${l.id}" aria-label="Eliminar licencia">Eliminar</button></td></tr>`).join("") +
     `</tbody></table>`;
 }
 
@@ -300,14 +340,14 @@ function pintarDia(){
       const cls = [wd===0||wd===6?"fin":"", f===hoy?"hoy":""].join(" ");
       if(l){
         usados.add(l.tipo);
-        h += `<td class="lic ${cls}" style="background:${colorTipo(l.tipo)}" title="${esc(a)}: ${esc(l.tipo)} (${fmt(l.desde)} al ${fmt(l.hasta)})">${esc(l.tipo.charAt(0).toUpperCase())}</td>`;
+        h += `<td class="lic ${cls}" style="background:${colorTipo(l.tipo)}" title="${esc(a)}: ${esc(l.tipo)} (${fmt(l.desde)} al ${fmt(l.hasta)})">${esc(abrev(l.tipo))}</td>`;
       }else h += `<td class="${cls}"></td>`;
     }
     h += `</tr>`;
   });
   h += `</tbody></table>`;
   $("grilla").innerHTML = agentes.length ? h : `<div class="empty">No hay agentes cargados. Agregalos en Configuración.</div>`;
-  $("leyenda").innerHTML = [...usados].map(t => `<span><i style="background:${colorTipo(t)}"></i>${esc(t.charAt(0).toUpperCase())} = ${esc(t)}</span>`).join("");
+  $("leyenda").innerHTML = [...usados].map(t => `<span><i style="background:${colorTipo(t)}"></i>${esc(abrev(t))} = ${esc(t)}</span>`).join("");
 
   const en = db.licencias.filter(l => diaSel>=l.desde && diaSel<=l.hasta).sort((a,b)=>a.agente.localeCompare(b.agente,"es"));
   const dt = toDate(diaSel);
@@ -316,7 +356,7 @@ function pintarDia(){
     en.map(l => `${esc(l.agente)} — ${esc(l.tipo)}, del ${fmt(l.desde)} al ${fmt(l.hasta)}`).join("<br>");
 }
 
-function todo(){ pintarDia(); pintarAgentes(); pintarTipos(); pintarAnios(); pintarResumen(); pintarLista(); }
+function todo(){ pintarSaldos(); pintarIni(); pintarDia(); pintarAgentes(); pintarTipos(); pintarAnios(); pintarResumen(); pintarLista(); }
 
 function actualizarDias(){
   const d=$("fDesde").value, h=$("fHasta").value;
@@ -402,9 +442,9 @@ function descargar(nombre, contenido, tipo){
   a.download = nombre; a.click(); URL.revokeObjectURL(a.href);
 }
 $("btnCsv").onclick = () => {
-  const filas = [["Fecha pedido","Agente","Tipo","Desde","Hasta","Días","N° INODI","Observación"]].concat(
+  const filas = [["Fecha pedido","Agente","Tipo","Desde","Hasta","N° INODI","Días","Observación"]].concat(
     [...db.licencias].sort((a,b)=>a.agente.localeCompare(b.agente,"es")||a.desde.localeCompare(b.desde))
-      .map(l=>[fmt(l.pedido),l.agente,l.tipo,fmt(l.desde),fmt(l.hasta),dias(l.desde,l.hasta),l.inodi||"",plano(l.obs||"")]));
+      .map(l=>[fmt(l.pedido),l.agente,l.tipo,fmt(l.desde),fmt(l.hasta),l.inodi||"",dias(l.desde,l.hasta),plano(l.obs||"")]));
   descargar("licencias.csv", "\ufeff"+filas.map(f=>f.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(";")).join("\n"), "text/csv");
 };
 $("btnResp").onclick = () => descargar("copia-licencias.json", JSON.stringify(db,null,2), "application/json");
@@ -417,8 +457,7 @@ $("fileImp").onchange = e => {
       const d = JSON.parse(r.result);
       if(!Array.isArray(d.agentes)||!Array.isArray(d.licencias)) throw 0;
       if(!confirm("Se reemplazarán todos los datos actuales por los de la copia. ¿Continuar?")) return;
-      if(!Array.isArray(d.tipos)) d.tipos = [...TIPOS_INICIALES];
-      db = d; guardar(); todo();
+      db = d; normalizarDB(); guardar(); todo();
     }catch(_){ alert("El archivo no es una copia válida."); }
   };
   r.readAsText(f); e.target.value="";
@@ -463,6 +502,116 @@ $("fObs").addEventListener("paste", e => {
   e.preventDefault();
   document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
 });
+
+// ---- Saldos de licencias ----
+// <saldos-core>
+const norm = s => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\./g,"").replace(/\s+/g," ").trim();
+const corto = t => String(t).split("-")[0].trim();
+const codigo = t => norm(corto(t));
+const GRUPOS = { art39:["art 39"], fe:["fe","item 99"], fo:["fo","art 22"] };
+const enGrupo = (t, g) => GRUPOS[g].includes(codigo(t));
+function diasDe(l){
+  const r = [];
+  for(let t = toDate(l.desde); t <= toDate(l.hasta); t.setDate(t.getDate()+1)) r.push(iso(t.getFullYear(), t.getMonth()+1, t.getDate()));
+  return r;
+}
+function saldoAgente(a, hoy){
+  const Y = +hoy.slice(0,4);
+  const ls = db.licencias.filter(l => l.agente === a);
+  // Se descuentan todos los días cargados, hayan transcurrido o no
+  const cargados = g => ls.filter(l => enGrupo(l.tipo,g)).flatMap(diasDe);
+  const a39 = cargados("art39").filter(d => +d.slice(0,4) === Y).length;
+  const fe = cargados("fe").filter(d => +d.slice(0,4) === Y).length;
+  const feHab = 14, feHabilitada = hoy >= Y+"-07-01";
+  // Feria ordinaria: se descuenta día por día, del año más antiguo habilitado y no vencido
+  const ini = db.saldosIni[a] || null;
+  const bal = {};
+  const get = L => { if(bal[L] === undefined) bal[L] = (ini && ini.anios[L] !== undefined) ? ini.anios[L] : 31; return bal[L]; };
+  let exceso = 0;
+  cargados("fo").filter(d => !ini || d > ini.corte).sort().forEach(d => {
+    const yd = +d.slice(0,4);
+    const L = [yd-2, yd-1].find(x => get(x) > 0);
+    if(L === undefined) exceso++; else bal[L]--;
+  });
+  return { a39, fe, feHab, feHabilitada, fo: { [Y-2]: get(Y-2), [Y-1]: get(Y-1) }, exceso, ini };
+}
+// </saldos-core>
+
+function abrev(t){
+  const c = corto(t);
+  if(c.length <= 3) return c.toUpperCase();
+  const num = c.match(/\d+/);
+  return c.charAt(0).toUpperCase() + (num ? num[0] : "");
+}
+
+function pintarSaldos(){
+  const hoy = hoyISO(), Y = +hoy.slice(0,4);
+  $("saldoFecha").textContent = `Saldos al ${fmt(hoy)}. Se descuentan todos los días cargados en los pedidos, hayan transcurrido o no.`;
+  const agentes = [...db.agentes].sort((a,b) => a.localeCompare(b,"es"));
+  if(!agentes.length){ $("saldos").innerHTML = `<div class="empty">No hay agentes cargados. Agregalos en Configuración.</div>`; return; }
+  const celda = (saldo, chico, cls="") => `<td class="n ${cls}${saldo<0?" neg":""}"><strong>${saldo}</strong><small>${chico}</small></td>`;
+  let h = `<table><thead><tr><th>Agente</th>
+    <th class="n">Art. 39<small>Asuntos personales ${Y}</small></th>
+    <th class="n">FE<small>Feria extraordinaria ${Y}</small></th>
+    <th class="n vence">FO ${Y-2}<small>vence 31/12/${Y}</small></th>
+    <th class="n">FO ${Y-1}<small>vence 31/12/${Y+1}</small></th>
+    <th class="n">Días sin saldo<small>Feria ordinaria</small></th></tr></thead><tbody>`;
+  agentes.forEach(a => {
+    const s = saldoAgente(a, hoy);
+    const foTxt = L => s.ini && s.ini.anios[L] !== undefined ? `inicial ${s.ini.anios[L]} al ${fmt(s.ini.corte).slice(0,5)}` : "de 31";
+    h += `<tr><td>${esc(a)}</td>` +
+      celda(6 - s.a39, `de 6 · cargados ${s.a39}`) +
+      celda(s.feHab - s.fe, `de 14 · cargados ${s.fe}` + (s.feHabilitada ? "" : " · se habilita 01/07")) +
+      celda(s.fo[Y-2], foTxt(Y-2), "vence") +
+      celda(s.fo[Y-1], foTxt(Y-1)) +
+      `<td class="n${s.exceso?" neg":""}"><strong>${s.exceso || "—"}</strong></td></tr>`;
+  });
+  $("saldos").innerHTML = h + "</tbody></table>";
+}
+
+let listaIni = [];
+function pintarIni(){
+  if(!$("fCorte").value) $("fCorte").value = hoyISO();
+  const Y = +$("fCorte").value.slice(0,4), L1 = Y-2, L2 = Y-1;
+  listaIni = [...db.agentes].sort((a,b) => a.localeCompare(b,"es"));
+  if(!listaIni.length){ $("tablaIni").innerHTML = `<div class="empty">Cargá primero la nómina de agentes en Configuración.</div>`; return; }
+  $("tablaIni").innerHTML = `<table><thead><tr><th>Agente</th><th class="n">Saldo FO ${L1}</th><th class="n">Saldo FO ${L2}</th><th>Saldo cargado</th><th></th></tr></thead><tbody>` +
+    listaIni.map((a,i) => {
+      const e = db.saldosIni[a];
+      const v = L => e && e.anios[L] !== undefined ? e.anios[L] : "";
+      const cargado = e ? `al ${fmt(e.corte)}: ` + Object.keys(e.anios).sort().map(k => `${k}: ${e.anios[k]}`).join(" · ") : "—";
+      return `<tr data-i="${i}"><td>${esc(a)}</td>
+        <td class="n"><input type="number" min="0" max="31" step="1" data-k="1" value="${v(L1)}" aria-label="Saldo ${L1} de ${esc(a)}"></td>
+        <td class="n"><input type="number" min="0" max="31" step="1" data-k="2" value="${v(L2)}" aria-label="Saldo ${L2} de ${esc(a)}"></td>
+        <td>${cargado}</td>
+        <td>${e ? `<button class="del" data-del="${i}" aria-label="Quitar saldo de ${esc(a)}">Quitar</button>` : ""}</td></tr>`;
+    }).join("") + "</tbody></table>";
+}
+$("fCorte").onchange = pintarIni;
+$("btnGuardarIni").onclick = () => {
+  const m = $("msgIni"), corte = $("fCorte").value;
+  if(!corte){ m.textContent = "Indicá la fecha del saldo."; m.className = "msg"; return; }
+  const Y = +corte.slice(0,4); let n = 0;
+  document.querySelectorAll("#tablaIni tr[data-i]").forEach(tr => {
+    const a = listaIni[+tr.dataset.i];
+    const val = k => { const v = tr.querySelector(`[data-k="${k}"]`).value.trim(); return v === "" ? null : Math.max(0, Math.min(31, Math.round(+v))); };
+    const v1 = val(1), v2 = val(2);
+    if(v1 === null && v2 === null) return;
+    const anios = {};
+    if(v1 !== null) anios[Y-2] = v1;
+    if(v2 !== null) anios[Y-1] = v2;
+    db.saldosIni[a] = { corte, anios }; n++;
+  });
+  guardar(); todo();
+  m.textContent = n ? `Saldo inicial guardado para ${n} agente(s).` : "No completaste ningún saldo.";
+  m.className = "msg" + (n ? " ok" : "");
+};
+$("tablaIni").onclick = e => {
+  const b = e.target.closest("button[data-del]"); if(!b) return;
+  const a = listaIni[+b.dataset.del];
+  if(!confirm(`¿Quitar el saldo inicial cargado de ${a}? Pasará a calcularse desde 31 días con todas sus licencias registradas.`)) return;
+  delete db.saldosIni[a]; guardar(); todo();
+};
 
 // ---- Licencias por día ----
 function moverMes(delta){
