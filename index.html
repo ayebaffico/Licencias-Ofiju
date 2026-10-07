@@ -1,7 +1,3 @@
-<script>
-const SUPABASE_URL = "https://nohiqhfgunxooslpizmt.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_E_8UgdFze_UmhsVR_11kEQ__9LQ3Wdf";
-</script>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -87,13 +83,18 @@ body.sinsesion header,body.sinsesion nav,body.sinsesion main{display:none}
 @media (max-width:800px){.vista,#v-pedido{grid-template-columns:minmax(0,1fr)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+function errorVisible(msg){ var m = document.getElementById("loginMsg"); if(m) m.textContent = "Error en la aplicación: " + msg; }
+window.addEventListener("error", function(e){ errorVisible(e.message); });
+window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason && e.reason.message ? e.reason.message : e.reason); });
+</script>
 </head>
 <body class="sinsesion">
 <div id="login">
   <div class="tarjeta">
     <h1>Registro de licencias</h1>
     <p class="msg" id="loginMsg" role="alert"></p>
-    <form id="formLogin">
+    <form id="formLogin" onsubmit="return false">
       <div class="field"><label for="lEmail">Correo electrónico</label><input type="email" id="lEmail" autocomplete="username" required></div>
       <div class="field"><label for="lPass">Contraseña</label><input type="password" id="lPass" autocomplete="current-password" required></div>
       <button type="submit">Ingresar</button>
@@ -234,14 +235,21 @@ body.sinsesion header,body.sinsesion nav,body.sinsesion main{display:none}
 const REQUERIDOS = ["Art. 39 - Asuntos personales","FE - Feria extraordinaria","Item 99 - Feria especial","FO - Feria ordinaria","Art. 22 - Feria anual compensatoria"];
 const TIPOS_INICIALES = [...REQUERIDOS,"Enfermedad","Familiar enfermo","Examen","Maternidad / Paternidad","Duelo","Matrimonio","Estudio","Otra"];
 // Datos de tu proyecto de Supabase (Project Settings → API). La clave pública puede estar en el código.
-const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
-const SUPABASE_KEY = "TU-CLAVE-PUBLICA";
+const SUPABASE_URL = "https://nohiqhfgunxooslpizmt.supabase.co";
+const SUPABASE_KEY = "sb_publishable_E_8UgdFze_UmhsVR_11kEQ__9LQ3Wdf";
 // ==============================================================================
 
 const $ = id => document.getElementById(id);
 let db = { agentes: [], licencias: [] };
 let version = 0, usuario = null, cargado = false, cola = Promise.resolve();
-const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+let sb = null, errorConfig = "";
+try{
+  let url = SUPABASE_URL.trim().replace(/\/+$/,"").replace(/\/rest\/v1$/,"");
+  if(!/^https?:\/\//.test(url)) url = "https://" + url;
+  if(!window.supabase) throw new Error("no se pudo cargar la librería de Supabase (revisá la conexión)");
+  sb = window.supabase.createClient(url, SUPABASE_KEY.trim());
+}catch(e){ errorConfig = e.message; }
+const msgConfig = () => errorConfig ? "Error de configuración: " + errorConfig.replace(/\.$/,"") + ". Revisá SUPABASE_URL y SUPABASE_KEY en index.html." : "Falta configurar SUPABASE_URL y SUPABASE_KEY en index.html.";
 
 function estado(txt){ $("estado").textContent = txt ? " · " + txt : ""; }
 function infoUltima(r){
@@ -306,19 +314,27 @@ async function entrar(user){
   }else mostrarLogin("No se pudieron cargar los datos. Reintentá más tarde.");
 }
 async function arrancar(){
-  if(!sb || SUPABASE_URL.includes("TU-PROYECTO")){ mostrarLogin("Falta configurar SUPABASE_URL y SUPABASE_KEY en index.html."); return; }
+  if(!sb || SUPABASE_URL.includes("TU-PROYECTO")){ mostrarLogin(msgConfig()); return; }
   sb.auth.onAuthStateChange(ev => { if(ev === "SIGNED_OUT") location.reload(); });
   const { data } = await sb.auth.getSession();
   if(data.session) await entrar(data.session.user); else mostrarLogin("");
 }
 $("formLogin").onsubmit = async e => {
   e.preventDefault();
-  if(!sb) return;
-  $("loginMsg").textContent = "Ingresando…";
-  const { data, error } = await sb.auth.signInWithPassword({ email: $("lEmail").value.trim(), password: $("lPass").value });
-  if(error){ $("loginMsg").textContent = "Correo o contraseña incorrectos."; return; }
-  $("lPass").value = "";
-  await entrar(data.user);
+  const msg = $("loginMsg");
+  if(!sb || SUPABASE_URL.includes("TU-PROYECTO")){ msg.textContent = msgConfig(); return false; }
+  msg.textContent = "Ingresando…";
+  try{
+    const { data, error } = await sb.auth.signInWithPassword({ email: $("lEmail").value.trim(), password: $("lPass").value });
+    if(error){
+      msg.textContent = /invalid login/i.test(error.message) ? "Correo o contraseña incorrectos." : "No se pudo ingresar: " + error.message;
+      return false;
+    }
+    $("lPass").value = "";
+    msg.textContent = "";
+    await entrar(data.user);
+  }catch(err){ msg.textContent = "No se pudo ingresar: " + err.message; }
+  return false;
 };
 $("btnSalir").onclick = async () => { await sb.auth.signOut(); location.reload(); };
 
