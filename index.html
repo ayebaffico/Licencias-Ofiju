@@ -80,13 +80,32 @@ td.obs{white-space:normal;min-width:180px;max-width:320px}
 #saldos td.neg strong{color:var(--danger)}
 #tablaIni input{width:90px}
 details summary{cursor:pointer;font-weight:600}
+#login{display:none;max-width:380px;margin:12vh auto;padding:0 20px}
+#login .tarjeta{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:24px}
+body.sinsesion #login{display:block}
+body.sinsesion header,body.sinsesion nav,body.sinsesion main{display:none}
+.sesion{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.85rem}
+.sesion button{padding:3px 10px;font-size:.85rem}
 @media (max-width:800px){.vista,#v-pedido{grid-template-columns:minmax(0,1fr)}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body class="sinsesion">
+<div id="login">
+  <div class="tarjeta">
+    <h1>Registro de licencias</h1>
+    <p class="msg" id="loginMsg" role="alert"></p>
+    <form id="formLogin">
+      <div class="field"><label for="lEmail">Correo electrónico</label><input type="email" id="lEmail" autocomplete="username" required></div>
+      <div class="field"><label for="lPass">Contraseña</label><input type="password" id="lPass" autocomplete="current-password" required></div>
+      <button type="submit">Ingresar</button>
+    </form>
+  </div>
+</div>
 <header>
   <h1>Registro de licencias</h1>
-  <p>Cargá los pedidos y consultá los días gozados por agente. Los datos se guardan en este navegador.</p>
+  <p>Cargá los pedidos y consultá los días gozados por agente. Los datos se guardan en una base compartida.</p>
+  <p class="sesion"><span id="quien"></span><span id="estado"></span><button class="ghost" id="btnSalir">Salir</button></p>
 </header>
 <nav class="tabs" role="tablist">
   <button role="tab" data-v="pedido">Nuevo pedido</button>
@@ -216,20 +235,95 @@ details summary{cursor:pointer;font-weight:600}
 // ====== CONFIGURACIÓN: editá estas listas para adaptarlas a tu organismo ======
 const REQUERIDOS = ["Art. 39 - Asuntos personales","FE - Feria extraordinaria","Item 99 - Feria especial","FO - Feria ordinaria","Art. 22 - Feria anual compensatoria"];
 const TIPOS_INICIALES = [...REQUERIDOS,"Enfermedad","Familiar enfermo","Examen","Maternidad / Paternidad","Duelo","Matrimonio","Estudio","Otra"];
-const AGENTES_INICIALES = ["Pérez, Juan","Gómez, María","Rodríguez, Carlos"];
+// Datos de tu proyecto de Supabase (Project Settings → API). La clave pública puede estar en el código.
+const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
+const SUPABASE_KEY = "TU-CLAVE-PUBLICA";
 // ==============================================================================
 
 const $ = id => document.getElementById(id);
-const KEY = "licencias_app_v1";
 let db = { agentes: [], licencias: [] };
+let version = 0, usuario = null, cargado = false, cola = Promise.resolve();
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-function cargar(){
-  try{
-    const raw = localStorage.getItem(KEY);
-    db = raw ? JSON.parse(raw) : { agentes: [...AGENTES_INICIALES], licencias: [] };
-  }catch(e){ db = { agentes: [...AGENTES_INICIALES], licencias: [] }; }
-  normalizarDB();
+function estado(txt){ $("estado").textContent = txt ? " · " + txt : ""; }
+function infoUltima(r){
+  const cuando = r.updated_at ? new Date(r.updated_at).toLocaleString("es-AR") : "";
+  return r.updated_by ? `última modificación: ${r.updated_by}, ${cuando}` : "";
 }
+
+async function cargarRemoto(){
+  const { data, error } = await sb.from("app_data").select("data,version,updated_by,updated_at").eq("id",1).single();
+  if(error){ estado("sin conexión con la base"); alert("No se pudieron cargar los datos: " + error.message); return false; }
+  db = (data.data && typeof data.data === "object") ? data.data : {};
+  normalizarDB();
+  version = data.version;
+  estado(infoUltima(data));
+  return true;
+}
+
+// Los cambios se guardan de a uno; si otra persona modificó los datos antes, se recarga la versión nueva.
+function guardar(){
+  if(!usuario || !cargado) return;
+  cola = cola.then(enviar).catch(e => console.error(e));
+}
+async function enviar(){
+  const ahora = new Date().toISOString();
+  const { data, error } = await sb.from("app_data")
+    .update({ data: db, version: version + 1, updated_by: usuario, updated_at: ahora })
+    .eq("id",1).eq("version", version).select("version,updated_by,updated_at");
+  if(error){
+    await cargarRemoto(); todo();
+    alert("No se pudo guardar el último cambio (" + error.message + "). Se recargaron los datos; verificá y repetí la acción.");
+    return;
+  }
+  if(!data.length){
+    await cargarRemoto(); todo();
+    alert("Otra persona modificó los datos mientras trabajabas. Se cargó la versión más reciente; repetí tu último cambio.");
+    return;
+  }
+  version = data[0].version;
+  estado(infoUltima(data[0]));
+}
+
+async function refrescar(){
+  await cola;
+  if(await cargarRemoto()) todo();
+}
+function suscribir(){
+  sb.channel("cambios_licencias")
+    .on("postgres_changes", { event:"UPDATE", schema:"public", table:"app_data" }, p => {
+      if(p.new && p.new.version > version) refrescar();
+    }).subscribe();
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) refrescar(); });
+}
+
+function mostrarLogin(msg){ document.body.classList.add("sinsesion"); $("loginMsg").textContent = msg || ""; }
+async function entrar(user){
+  usuario = user.email;
+  $("quien").textContent = usuario;
+  if(await cargarRemoto()){
+    cargado = true;
+    document.body.classList.remove("sinsesion");
+    todo(); suscribir();
+  }else mostrarLogin("No se pudieron cargar los datos. Reintentá más tarde.");
+}
+async function arrancar(){
+  if(!sb || SUPABASE_URL.includes("TU-PROYECTO")){ mostrarLogin("Falta configurar SUPABASE_URL y SUPABASE_KEY en index.html."); return; }
+  sb.auth.onAuthStateChange(ev => { if(ev === "SIGNED_OUT") location.reload(); });
+  const { data } = await sb.auth.getSession();
+  if(data.session) await entrar(data.session.user); else mostrarLogin("");
+}
+$("formLogin").onsubmit = async e => {
+  e.preventDefault();
+  if(!sb) return;
+  $("loginMsg").textContent = "Ingresando…";
+  const { data, error } = await sb.auth.signInWithPassword({ email: $("lEmail").value.trim(), password: $("lPass").value });
+  if(error){ $("loginMsg").textContent = "Correo o contraseña incorrectos."; return; }
+  $("lPass").value = "";
+  await entrar(data.user);
+};
+$("btnSalir").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
 function normalizarDB(){
   if(!Array.isArray(db.agentes)) db.agentes = [];
   if(!Array.isArray(db.licencias)) db.licencias = [];
@@ -238,7 +332,6 @@ function normalizarDB(){
   // Los tipos que llevan saldo deben existir
   REQUERIDOS.forEach(r => { if(!db.tipos.some(t => codigo(t) === codigo(r))) db.tipos.push(r); });
 }
-function guardar(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ aviso("No se pudo guardar en el navegador.", false); } }
 
 const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const toDate = s => new Date(s + "T00:00:00");
@@ -642,7 +735,8 @@ document.querySelector(".tabs").onclick = e => { const b = e.target.closest("but
 // ---- Inicio ----
 $("fPedido").value = hoyISO();
 $("fMes").value = hoyISO().slice(0,7);
-cargar(); todo(); vista("pedido");
+vista("pedido");
+arrancar();
 </script>
 </body>
 </html>
