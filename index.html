@@ -81,6 +81,20 @@ body.sinsesion header,body.sinsesion nav,body.sinsesion main{display:none}
 .sesion{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.85rem}
 .sesion button{padding:3px 10px;font-size:.85rem}
 #btnCancelar{margin-left:8px}
+.tabs{position:sticky;top:0;z-index:10;background:var(--bg);flex-wrap:wrap}
+.tabs button.nuevo{margin-left:auto;margin-bottom:6px;background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);border-radius:6px;font-weight:600}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow:auto}
+.modal[hidden]{display:none}
+.modal-card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px;width:100%;max-width:560px}
+.modal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.modal-top h2{margin:0}
+.combo{position:relative}
+.combo ul{position:absolute;z-index:20;left:0;right:0;max-height:220px;overflow:auto;margin:2px 0 0;padding:0;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:6px;box-shadow:0 6px 16px rgba(0,0,0,.2)}
+.combo li{padding:8px 10px;cursor:pointer}
+.combo li.act{background:var(--accent);color:var(--accent-ink)}
+.combo li.vacio{color:var(--mute);cursor:default}
+#btnGuardar small{display:block;font-size:.7rem;font-weight:400;opacity:.85}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;z-index:60}
 @media (max-width:800px){.vista,#v-pedido{grid-template-columns:minmax(0,1fr)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -108,40 +122,13 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
   <p class="sesion"><span id="quien"></span><span id="estado"></span><button class="ghost" id="btnSalir">Salir</button></p>
 </header>
 <nav class="tabs" role="tablist">
-  <button role="tab" data-v="pedido">Nuevo pedido</button>
   <button role="tab" data-v="dia">Licencias por día</button>
   <button role="tab" data-v="datos">Resumen y licencias</button>
   <button role="tab" data-v="saldos">Saldos de licencias</button>
   <button role="tab" data-v="config">Configuración</button>
+  <button class="nuevo" id="btnNuevo">+ Nuevo pedido</button>
 </nav>
 <main>
-<div class="vista" id="v-pedido">
-  <section>
-    <h2 id="tituloForm">Nuevo pedido de licencia</h2>
-    <div class="field"><label for="fPedido">Fecha del pedido</label><input type="date" id="fPedido"></div>
-    <div class="field"><label for="fAgente">Agente (apellido y nombre)</label><select id="fAgente"></select></div>
-    <div class="field"><label for="fTipo">Tipo de licencia</label><select id="fTipo"></select></div>
-    <div class="row">
-      <div><label for="fDesde">Desde</label><input type="date" id="fDesde"></div>
-      <div><label for="fHasta">Hasta</label><input type="date" id="fHasta"></div>
-    </div>
-    <div class="days" id="dias"></div>
-    <div class="field"><label for="fInodi">N° INODI (opcional)</label><input type="number" id="fInodi" min="0" step="1" inputmode="numeric"></div>
-    <div class="field">
-      <label id="lObs">Observación (opcional)</label>
-      <div class="tools">
-        <input type="color" id="oColor" value="#c0392b" aria-label="Color de letra">
-        <button type="button" class="ghost" id="btnColor">Aplicar color al texto seleccionado</button>
-        <button type="button" class="ghost" id="btnSinFormato">Quitar formato</button>
-      </div>
-      <div id="fObs" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="lObs" data-ph="Escribí una observación. Seleccioná parte del texto para cambiarle el color."></div>
-    </div>
-    <button id="btnGuardar">Guardar licencia</button>
-    <button class="ghost" id="btnCancelar" hidden>Cancelar edición</button>
-    <div class="msg" id="msg" role="status"></div>
-  </section>
-</div>
-
 <div class="vista" id="v-config" hidden>
   <section>
     <h2>Nómina de agentes</h2>
@@ -231,6 +218,34 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
   </section>
 </div>
 </main>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloForm">
+    <div class="modal-top"><h2 id="tituloForm">Nuevo pedido de licencia</h2><button class="del" id="btnCerrar" aria-label="Cerrar">✕</button></div>
+    <div class="field"><label for="fPedido">Fecha del pedido</label><input type="date" id="fPedido"></div>
+    <div class="field"><label for="fAgente">Agente (apellido y nombre)</label><div class="combo"><input id="fAgente" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="lista_fAgente" autocomplete="off" placeholder="Escribí para buscar…"><ul id="lista_fAgente" role="listbox" hidden></ul></div></div>
+    <div class="field"><label for="fTipo">Tipo de licencia</label><div class="combo"><input id="fTipo" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="lista_fTipo" autocomplete="off" placeholder="Escribí para buscar…"><ul id="lista_fTipo" role="listbox" hidden></ul></div></div>
+    <div class="row">
+      <div><label for="fDesde">Desde</label><input type="date" id="fDesde"></div>
+      <div><label for="fHasta">Hasta</label><input type="date" id="fHasta"></div>
+    </div>
+    <div class="days" id="dias"></div>
+    <div class="field"><label for="fInodi">N° INODI (opcional)</label><input type="number" id="fInodi" min="0" step="1" inputmode="numeric"></div>
+    <div class="field">
+      <label id="lObs">Observación (opcional)</label>
+      <div class="tools">
+        <input type="color" id="oColor" value="#c0392b" aria-label="Color de letra">
+        <button type="button" class="ghost" id="btnColor">Aplicar color al texto seleccionado</button>
+        <button type="button" class="ghost" id="btnSinFormato">Quitar formato</button>
+      </div>
+      <div id="fObs" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="lObs" data-ph="Escribí una observación. Seleccioná parte del texto para cambiarle el color."></div>
+    </div>
+    <button id="btnGuardar">Guardar licencia<small>Ctrl+G</small></button>
+    <button class="ghost" id="btnCancelar">Cancelar</button>
+    <div class="msg" id="msg" role="status"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script>
 // ====== CONFIGURACIÓN: editá estas listas para adaptarlas a tu organismo ======
@@ -375,10 +390,6 @@ function diasProgramados(l, anio){
 function pintarAgentes(){
   ordenar(db.agentes);
   const opts = db.agentes.map(a => `<option>${esc(a)}</option>`).join("");
-  const sel = $("fAgente").value;
-  const le = licEdit(), listaF = le && !db.agentes.includes(le.agente) ? [...db.agentes, le.agente] : db.agentes;
-  $("fAgente").innerHTML = listaF.map(a => `<option>${esc(a)}</option>`).join("");
-  if(listaF.includes(sel)) $("fAgente").value = sel;
   const f = $("fFiltroAg").value;
   $("fFiltroAg").innerHTML = `<option value="">Todos</option>` + opts;
   if(db.agentes.includes(f)) $("fFiltroAg").value = f;
@@ -388,10 +399,6 @@ function pintarAgentes(){
 }
 
 function pintarTipos(){
-  const sel = $("fTipo").value;
-  const le = licEdit(), listaT = le && !db.tipos.includes(le.tipo) ? [...db.tipos, le.tipo] : db.tipos;
-  $("fTipo").innerHTML = listaT.map(t => `<option>${esc(t)}</option>`).join("");
-  if(listaT.includes(sel)) $("fTipo").value = sel;
   $("chipsTipos").innerHTML = db.tipos.length
     ? db.tipos.map((t,i) => `<span class="chip">${esc(t)}<button class="edit" data-i="${i}" aria-label="Renombrar ${esc(t)}">✎</button><button class="del" data-i="${i}" aria-label="Quitar ${esc(t)}">✕</button></span>`).join("")
     : `<div class="empty">No hay tipos de licencia. Agregá el primero.</div>`;
@@ -486,48 +493,122 @@ function actualizarDias(){
 $("fDesde").addEventListener("change", ()=>{ if(!$("fHasta").value || $("fHasta").value<$("fDesde").value) $("fHasta").value=$("fDesde").value; actualizarDias(); });
 $("fHasta").addEventListener("change", actualizarDias);
 
+// ---- Listas desplegables con búsqueda ----
+const nq = t => norm(t).replace(/[,\-\/]/g, " ").replace(/\s+/g, " ").trim();
+const coincide = (item, q) => { const n = nq(item); return nq(q).split(" ").filter(Boolean).every(t => n.includes(t)); };
+const ordenAlfa = arr => [...arr].sort((x,y) => x.localeCompare(y, "es", { sensitivity: "base" }));
+const itemsAgentes = () => { const le = licEdit(); return ordenAlfa(le && !db.agentes.includes(le.agente) ? [...db.agentes, le.agente] : db.agentes); };
+const itemsTipos = () => { const le = licEdit(); return ordenAlfa(le && !db.tipos.includes(le.tipo) ? [...db.tipos, le.tipo] : db.tipos); };
+// Devuelve el ítem de la lista que corresponde al texto (exacto o única coincidencia); si no, null
+function resolver(texto, items){
+  const t = nq(texto); if(!t) return null;
+  const exacto = items.find(x => nq(x) === t); if(exacto) return exacto;
+  const c = items.filter(x => coincide(x, texto));
+  return c.length === 1 ? c[0] : null;
+}
+function combo(id, items){
+  const inp = $(id), ul = $("lista_" + id);
+  let vis = [], act = -1;
+  const abierto = () => !ul.hidden;
+  function pintar(){
+    ul.innerHTML = vis.length
+      ? vis.map((x,i) => `<li role="option" data-i="${i}" id="${id}_o${i}"${i===act ? ' class="act" aria-selected="true"' : ""}>${esc(x)}</li>`).join("")
+      : `<li class="vacio">Sin coincidencias</li>`;
+    const a = ul.querySelector(".act"); if(a) a.scrollIntoView({ block: "nearest" });
+    inp.setAttribute("aria-activedescendant", act >= 0 ? `${id}_o${act}` : "");
+  }
+  function abrir(){
+    const todos = items(), t = nq(inp.value);
+    const hay = todos.findIndex(x => nq(x) === t);
+    vis = (!t || hay >= 0) ? todos : todos.filter(x => coincide(x, inp.value));
+    act = hay >= 0 ? hay : (vis.length ? 0 : -1);
+    ul.hidden = false; inp.setAttribute("aria-expanded", "true"); pintar();
+  }
+  const cerrar = () => { ul.hidden = true; inp.setAttribute("aria-expanded", "false"); };
+  const elegir = i => { if(vis[i] === undefined) return; inp.value = vis[i]; cerrar(); };
+  inp.addEventListener("focus", abrir);
+  inp.addEventListener("input", abrir);
+  inp.addEventListener("blur", () => { cerrar(); const r = resolver(inp.value, items()); if(r) inp.value = r; });
+  inp.addEventListener("keydown", e => {
+    if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+      e.preventDefault();
+      if(!abierto()){ abrir(); return; }
+      if(!vis.length) return;
+      act = (act + (e.key === "ArrowDown" ? 1 : -1) + vis.length) % vis.length; pintar();
+    }else if(e.key === "Enter"){
+      if(abierto() && act >= 0){ e.preventDefault(); elegir(act); }
+    }else if(e.key === "Escape"){
+      if(abierto()){ e.stopPropagation(); cerrar(); }
+    }
+  });
+  ul.addEventListener("mousedown", e => { e.preventDefault(); const li = e.target.closest("li[data-i]"); if(li) elegir(+li.dataset.i); });
+}
+combo("fAgente", itemsAgentes);
+combo("fTipo", itemsTipos);
+
+// ---- Formulario de pedido (ventana) ----
+let toastT;
+function toast(m){ const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3500); }
 function modoEdicion(on){
   $("tituloForm").textContent = on ? "Editar licencia" : "Nuevo pedido de licencia";
-  $("btnGuardar").textContent = on ? "Guardar cambios" : "Guardar licencia";
-  $("btnCancelar").hidden = !on;
+  $("btnGuardar").innerHTML = (on ? "Guardar cambios" : "Guardar licencia") + "<small>Ctrl+G</small>";
+}
+function limpiarForm(){
+  $("fPedido").value = hoyISO();
+  $("fAgente").value = $("fTipo").value = $("fDesde").value = $("fHasta").value = $("fInodi").value = "";
+  $("fObs").innerHTML = "";
+  actualizarDias(); aviso("", true);
+}
+function abrirForm(foco){
+  $("modal").hidden = false;
+  document.body.style.overflow = "hidden";
+  setTimeout(() => $(foco || "fAgente").focus(), 0);
 }
 function finEdicion(){
   editandoId = null;
   modoEdicion(false);
-  pintarAgentes(); pintarTipos();
-  $("fPedido").value = hoyISO();
-  $("fDesde").value = $("fHasta").value = $("fInodi").value = "";
-  $("fObs").innerHTML = "";
-  actualizarDias();
+  $("modal").hidden = true;
+  document.body.style.overflow = "";
+  $("lista_fAgente").hidden = true; $("lista_fTipo").hidden = true;
 }
+function nuevo(){ editandoId = null; modoEdicion(false); limpiarForm(); abrirForm("fAgente"); }
 function editar(id){
   const l = db.licencias.find(x => x.id === id); if(!l) return;
   editandoId = id;
-  pintarAgentes(); pintarTipos();
   $("fPedido").value = l.pedido; $("fAgente").value = l.agente; $("fTipo").value = l.tipo;
   $("fDesde").value = l.desde; $("fHasta").value = l.hasta; $("fInodi").value = l.inodi || "";
   $("fObs").innerHTML = sanear(l.obs || "");
   actualizarDias(); modoEdicion(true); aviso("", true);
-  vista("pedido"); window.scrollTo(0, 0);
+  abrirForm("fPedido");
 }
-$("btnCancelar").onclick = () => { finEdicion(); aviso("Edición cancelada.", true); };
+$("btnNuevo").onclick = nuevo;
+$("btnCerrar").onclick = finEdicion;
+$("btnCancelar").onclick = finEdicion;
+document.addEventListener("keydown", e => {
+  if($("modal").hidden) return;
+  if(e.key === "Escape") finEdicion();
+  else if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g"){ e.preventDefault(); $("btnGuardar").click(); }
+});
 
 $("btnGuardar").onclick = () => {
   if(!db.agentes.length || !db.tipos.length) return aviso("Primero cargá agentes y tipos de licencia en Configuración.", false);
-  const l = { id: editandoId || Date.now()+Math.random().toString(36).slice(2,6), pedido:$("fPedido").value, agente:$("fAgente").value, tipo:$("fTipo").value, desde:$("fDesde").value, hasta:$("fHasta").value, inodi:$("fInodi").value.trim(), obs:limpiar($("fObs")) };
-  if(!l.pedido||!l.agente||!l.tipo||!l.desde||!l.hasta) return aviso("Completá todos los campos.", false);
+  const agente = resolver($("fAgente").value, itemsAgentes()), tipo = resolver($("fTipo").value, itemsTipos());
+  if(!agente) return aviso("Elegí un agente de la lista.", false);
+  if(!tipo) return aviso("Elegí un tipo de licencia de la lista.", false);
+  const l = { id: editandoId || Date.now()+Math.random().toString(36).slice(2,6), pedido:$("fPedido").value, agente, tipo, desde:$("fDesde").value, hasta:$("fHasta").value, inodi:$("fInodi").value.trim(), obs:limpiar($("fObs")) };
+  if(!l.pedido||!l.desde||!l.hasta) return aviso("Completá la fecha del pedido y las fechas desde y hasta.", false);
   if(l.hasta < l.desde) return aviso("La fecha “hasta” no puede ser anterior a “desde”.", false);
   const solapa = db.licencias.find(x => x.id !== l.id && x.agente===l.agente && l.desde<=x.hasta && l.hasta>=x.desde);
   if(solapa && !confirm(`${l.agente} ya tiene una licencia del ${fmt(solapa.desde)} al ${fmt(solapa.hasta)} que se superpone. ¿Guardar igual?`)) return;
   const editando = !!editandoId;
   if(editando){
     const i = db.licencias.findIndex(x => x.id === editandoId);
-    if(i < 0){ finEdicion(); return aviso("Esa licencia ya no existe (otra persona pudo haberla eliminado).", false); }
+    if(i < 0){ finEdicion(); toast("Esa licencia ya no existe (otra persona pudo haberla eliminado)."); return; }
     db.licencias[i] = l;
   }else db.licencias.push(l);
-  finEdicion();
   guardar(); todo();
-  aviso(editando ? "Cambios guardados." : "Licencia guardada.", true);
+  if(editando){ finEdicion(); toast("Cambios guardados."); }
+  else{ limpiarForm(); aviso("Licencia guardada. Podés cargar otra.", true); $("fAgente").focus(); }
 };
 
 $("btnAgregar").onclick = () => {
@@ -786,12 +867,12 @@ function vista(n){
   document.querySelectorAll(".vista").forEach(v => v.hidden = v.id !== "v-"+n);
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.v===n));
 }
-document.querySelector(".tabs").onclick = e => { const b = e.target.closest("button"); if(b) vista(b.dataset.v); };
+document.querySelector(".tabs").onclick = e => { const b = e.target.closest("button"); if(b && b.dataset.v) vista(b.dataset.v); };
 
 // ---- Inicio ----
 $("fPedido").value = hoyISO();
 $("fMes").value = hoyISO().slice(0,7);
-vista("pedido");
+vista("dia");
 arrancar();
 </script>
 </body>
