@@ -35,6 +35,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .msg{min-height:1.3em;font-size:.88rem;color:var(--danger);margin-top:8px}
 .msg.ok{color:var(--accent)}
 .wrap{overflow-x:auto}
+.wrap.scroll{overflow:auto;max-height:min(62vh,540px);border:1px solid var(--line);border-radius:6px}
+.wrap.scroll table{border-collapse:separate;border-spacing:0}
+.wrap.scroll thead th{position:sticky;top:0;z-index:3;background:var(--soft);box-shadow:inset 0 -2px 0 var(--line)}
+.wrap.scroll td{border-bottom:1px solid var(--line)}
+.wrap.scroll .empty{padding:14px}
 table{width:100%;border-collapse:collapse;font-size:.92rem}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
 th{font-weight:600;background:var(--soft)}
@@ -164,7 +169,7 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
 <div class="vista" id="v-reg" hidden>
   <section class="full">
     <h2>Registro de novedades</h2>
-    <div class="wrap" id="lista"></div>
+    <div class="wrap scroll" id="lista"></div>
     <p class="days">Para ordenar, tocá ▲ (ascendente) o ▼ (descendente) junto al título de la columna.</p>
     <div class="bar">
       <button class="ghost" id="btnCsv">Exportar CSV</button>
@@ -220,7 +225,7 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
       <div><label for="fAnio">Año</label><select id="fAnio"></select></div>
       <div><label for="fFiltroAg">Agente</label><select id="fFiltroAg"></select></div>
     </div>
-    <div class="wrap" id="resumen"></div>
+    <div class="wrap scroll" id="resumen"></div>
     <p class="days">Se cuentan días corridos entre "desde" y "hasta" (ambos incluidos). Solo se suman los días ya transcurridos hasta hoy; los pedidos futuros figuran como programados.</p>
   </section>
 </div>
@@ -422,8 +427,9 @@ function pintarAnios(){
 
 function pintarResumen(){
   const anio = +$("fAnio").value, ag = $("fFiltroAg").value;
-  const agentes = ag ? [ag] : db.agentes;
-  const tipos = [...new Set([...db.tipos, ...db.licencias.map(l=>l.tipo)])].filter(t => db.licencias.some(l => l.tipo===t));
+  const alfa = (x,y) => x.localeCompare(y, "es", { sensitivity: "base" });
+  const agentes = (ag ? [ag] : [...db.agentes]).sort(alfa);
+  const tipos = [...new Set([...db.tipos, ...db.licencias.map(l=>l.tipo)])].filter(t => db.licencias.some(l => l.tipo===t)).sort(alfa);
   let html = `<table><thead><tr><th>Agente</th>${tipos.map(t=>`<th class="n" title="${esc(t)}">${esc(corto(t))}</th>`).join("")}<th class="n">Total gozados</th><th class="n">Programados</th></tr></thead><tbody>`;
   let hay = false;
   agentes.forEach(a => {
@@ -443,6 +449,7 @@ let ordLista = { campo: "desde", dir: "desc" };
 const ordCmp = {
   pedido: (a,b) => a.pedido.localeCompare(b.pedido),
   agente: (a,b) => a.agente.localeCompare(b.agente, "es", { sensitivity: "base" }),
+  tipo:   (a,b) => a.tipo.localeCompare(b.tipo, "es", { sensitivity: "base" }),
   desde:  (a,b) => a.desde.localeCompare(b.desde),
   hasta:  (a,b) => a.hasta.localeCompare(b.hasta)
 };
@@ -457,7 +464,7 @@ function listaOrdenada(){
 function pintarLista(){
   const ls = listaOrdenada();
   if(!ls.length){ $("lista").innerHTML = `<div class="empty">Sin licencias cargadas. Tocá “+ Nuevo pedido” para registrar la primera.</div>`; return; }
-  $("lista").innerHTML = `<table><thead><tr>${thOrd("pedido","Pedido")}${thOrd("agente","Agente")}<th>Tipo</th>${thOrd("desde","Desde")}${thOrd("hasta","Hasta")}<th>N° INODI</th><th class="n">Días</th><th>Observación</th><th></th></tr></thead><tbody>` +
+  $("lista").innerHTML = `<table><thead><tr>${thOrd("pedido","Pedido")}${thOrd("agente","Agente")}${thOrd("tipo","Tipo")}${thOrd("desde","Desde")}${thOrd("hasta","Hasta")}<th>N° INODI</th><th class="n">Días</th><th>Observación</th><th></th></tr></thead><tbody>` +
     ls.map(l => `<tr><td>${fmt(l.pedido)}</td><td>${esc(l.agente)}</td><td>${esc(l.tipo)}</td><td>${fmt(l.desde)}</td><td>${fmt(l.hasta)}</td><td>${esc(l.inodi||"")}</td><td class="n">${dias(l.desde,l.hasta)}</td><td class="obs">${sanear(l.obs||"")}</td><td><button class="edit" data-edit="${l.id}" aria-label="Editar licencia">Editar</button><button class="del" data-id="${l.id}" aria-label="Eliminar licencia">Eliminar</button></td></tr>`).join("") +
     `</tbody></table>`;
 }
@@ -895,7 +902,7 @@ document.querySelector(".tabs").onclick = e => { const b = e.target.closest("but
 // ---- Inicio ----
 $("fPedido").value = hoyISO();
 $("fMes").value = hoyISO().slice(0,7);
-vista("reg");
+vista("dia");
 arrancar();
 </script>
 </body>
