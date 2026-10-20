@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Registro de licencias</title>
 <style>
-:root{--bg:#f3f5f4;--card:#fff;--ink:#1d2b2a;--mute:#5d6d6b;--line:#d5dcda;--accent:#1f5f5b;--accent-ink:#fff;--danger:#a63d2f;--soft:#e3eeec;--hoy:#fff1b8;--hoy-h:#e8b923}
-@media (prefers-color-scheme:dark){:root{--bg:#141a19;--card:#1c2423;--ink:#e6eeec;--mute:#93a5a2;--line:#2f3b3a;--accent:#5fb3ac;--accent-ink:#0d1716;--danger:#e57f70;--soft:#243231;--hoy:#4a4020;--hoy-h:#e8b923}}
+:root{--lt:80%;--lp:91%;--st:62%;--sp:42%;--bg:#f3f5f4;--card:#fff;--ink:#1d2b2a;--mute:#5d6d6b;--line:#d5dcda;--accent:#1f5f5b;--accent-ink:#fff;--danger:#a63d2f;--soft:#e3eeec;--hoy:#fff1b8;--hoy-h:#e8b923}
+@media (prefers-color-scheme:dark){:root{--lt:30%;--lp:23%;--st:48%;--sp:28%;--bg:#141a19;--card:#1c2423;--ink:#e6eeec;--mute:#93a5a2;--line:#2f3b3a;--accent:#5fb3ac;--accent-ink:#0d1716;--danger:#e57f70;--soft:#243231;--hoy:#4a4020;--hoy-h:#e8b923}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
 header{padding:28px 20px 8px;max-width:1100px;margin:0 auto}
@@ -103,6 +103,23 @@ body.sinsesion header,body.sinsesion nav,body.sinsesion main{display:none}
 th .ord{display:inline-flex;gap:1px;margin-left:6px;vertical-align:middle}
 th .ord button{padding:0 4px;font-size:.7rem;line-height:1.5;background:transparent;border:1px solid var(--line);color:var(--mute);border-radius:3px}
 th .ord button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+#grilla th:nth-child(2),#grilla td:nth-child(2){position:sticky;left:190px;background:var(--card);text-align:left;padding:4px 8px;min-width:130px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;z-index:1;border-right:1px solid var(--line)}
+#grilla th:first-child,#grilla td:first-child{width:190px;min-width:190px;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#grilla th:nth-child(-n+2){z-index:2}
+#grilla th .ord{margin-left:4px}
+#grilla td.sinsec{color:var(--mute)}
+#resumen table{border:0}
+#resumen th,#resumen td{border-right:1px solid var(--line)}
+#resumen th:last-child,#resumen td:last-child{border-right:0}
+#resumen tbody tr:nth-child(even) td{background:rgba(128,128,128,.09)}
+#resumen td.cero{color:var(--mute)}
+#resumen th.tot,#resumen td.tot{border-left:2px solid var(--accent);border-right:2px solid var(--accent)}
+#resumen th.tot{background:var(--accent);color:var(--accent-ink)}
+#resumen td.tot{font-size:1.08rem;font-weight:700}
+#resumen tbody tr:nth-child(n) td.esc-t{background:hsl(var(--h) var(--st) var(--lt));color:var(--ink)}
+#resumen tbody tr:nth-child(n) td.esc-p{background:hsl(var(--h) var(--sp) var(--lp));color:var(--ink)}
+.escala{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--mute);margin-top:10px;flex-wrap:wrap}
+.escala i{display:inline-block;width:120px;height:10px;border-radius:5px;background:linear-gradient(90deg,hsl(130 var(--st) var(--lt)),hsl(65 var(--st) var(--lt)),hsl(0 var(--st) var(--lt)))}
 @media (max-width:800px){.vista,#v-pedido{grid-template-columns:minmax(0,1fr)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -143,12 +160,14 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
     <h2>Nómina de agentes</h2>
     <label for="fNuevo">Agregar agente</label>
     <div class="bar" style="margin-top:0">
-      <input id="fNuevo" placeholder="Apellido, Nombre" style="flex:1;min-width:0">
+      <input id="fNuevo" placeholder="Apellido, Nombre" style="flex:2;min-width:0" aria-label="Apellido y nombre">
+      <input id="fNuevoSector" list="dlSectores" placeholder="Sector" style="flex:1;min-width:0" aria-label="Sector">
+      <datalist id="dlSectores"></datalist>
       <button id="btnAgregar">Agregar</button>
     </div>
     <div class="field" style="margin-top:14px">
-      <label for="fLote">Pegar nómina completa (un agente por línea; reemplaza la lista actual)</label>
-      <textarea id="fLote" rows="3" placeholder="Pérez, Juan&#10;Gómez, María"></textarea>
+      <label for="fLote">Pegar nómina completa (un agente por línea, con el sector después de “;” o de una tabulación; reemplaza la lista actual)</label>
+      <textarea id="fLote" rows="3" placeholder="Pérez, Juan; Mesa de entradas&#10;Gómez, María; Despacho"></textarea>
     </div>
     <button class="ghost" id="btnLote">Reemplazar nómina</button>
     <div class="chips" id="chips"></div>
@@ -227,6 +246,7 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
     </div>
     <div class="wrap scroll" id="resumen"></div>
     <p class="days">Se cuentan días corridos entre "desde" y "hasta" (ambos incluidos). Solo se suman los días ya transcurridos hasta hoy; los pedidos futuros figuran como programados.</p>
+    <div class="escala"><i></i> Escala de color en “Total gozados” y “Programados”: verde = menos días, rojo = más días (comparado entre los agentes que se muestran).</div>
   </section>
 </div>
 </main>
@@ -264,8 +284,8 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
 const REQUERIDOS = ["Art. 39 - Asuntos personales","FE - Feria extraordinaria","Item 99 - Feria especial","FO - Feria ordinaria","Art. 22 - Feria anual compensatoria"];
 const TIPOS_INICIALES = [...REQUERIDOS,"Enfermedad","Familiar enfermo","Examen","Maternidad / Paternidad","Duelo","Matrimonio","Estudio","Otra"];
 // Datos de tu proyecto de Supabase (Project Settings → API). La clave pública puede estar en el código.
-const SUPABASE_URL = "https://nohiqhfgunxooslpizmt.supabase.co";
-const SUPABASE_KEY = "sb_publishable_E_8UgdFze_UmhsVR_11kEQ__9LQ3Wdf";
+const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
+const SUPABASE_KEY = "TU-CLAVE-PUBLICA";
 // ==============================================================================
 
 const $ = id => document.getElementById(id);
@@ -374,6 +394,7 @@ function normalizarDB(){
   if(!Array.isArray(db.licencias)) db.licencias = [];
   if(!Array.isArray(db.tipos)) db.tipos = [...TIPOS_INICIALES];
   if(!db.saldosIni || typeof db.saldosIni !== "object") db.saldosIni = {};
+  if(!db.sectores || typeof db.sectores !== "object" || Array.isArray(db.sectores)) db.sectores = {};
   // Los tipos que llevan saldo deben existir
   REQUERIDOS.forEach(r => { if(!db.tipos.some(t => codigo(t) === codigo(r))) db.tipos.push(r); });
 }
@@ -399,6 +420,8 @@ function diasProgramados(l, anio){
   return fin >= ini ? Math.round((fin - ini)/864e5)+1 : 0;
 }
 
+const sectorDe = a => ((db.sectores && db.sectores[a]) || "").trim();
+const listaSectores = () => [...new Set(db.agentes.map(sectorDe).map(x => String(x).trim()).filter(Boolean))].sort((x,y) => x.localeCompare(y, "es", { sensitivity: "base" }));
 function pintarAgentes(){
   ordenar(db.agentes);
   const opts = db.agentes.map(a => `<option>${esc(a)}</option>`).join("");
@@ -406,8 +429,9 @@ function pintarAgentes(){
   $("fFiltroAg").innerHTML = `<option value="">Todos</option>` + opts;
   if(db.agentes.includes(f)) $("fFiltroAg").value = f;
   $("chips").innerHTML = db.agentes.length
-    ? db.agentes.map((a,i) => `<span class="chip">${esc(a)}<button class="del" data-i="${i}" aria-label="Quitar ${esc(a)}">✕</button></span>`).join("")
+    ? db.agentes.map((a,i) => `<span class="chip">${esc(a)}${sectorDe(a) ? ` <small style="color:var(--mute)">· ${esc(sectorDe(a))}</small>` : ""}<button class="edit" data-i="${i}" aria-label="Cambiar sector de ${esc(a)}" title="Cambiar sector">✎</button><button class="del" data-i="${i}" aria-label="Quitar ${esc(a)}">✕</button></span>`).join("")
     : `<div class="empty">Todavía no hay agentes. Agregá el primero.</div>`;
+  $("dlSectores").innerHTML = listaSectores().map(x => `<option value="${esc(x)}">`).join("");
 }
 
 function pintarTipos(){
@@ -430,19 +454,30 @@ function pintarResumen(){
   const alfa = (x,y) => x.localeCompare(y, "es", { sensitivity: "base" });
   const agentes = (ag ? [ag] : [...db.agentes]).sort(alfa);
   const tipos = [...new Set([...db.tipos, ...db.licencias.map(l=>l.tipo)])].filter(t => db.licencias.some(l => l.tipo===t)).sort(alfa);
-  let html = `<table><thead><tr><th>Agente</th>${tipos.map(t=>`<th class="n" title="${esc(t)}">${esc(corto(t))}</th>`).join("")}<th class="n">Total gozados</th><th class="n">Programados</th></tr></thead><tbody>`;
-  let hay = false;
+  const filas = [];
   agentes.forEach(a => {
     const ls = db.licencias.filter(l => l.agente===a);
     const porTipo = tipos.map(t => ls.filter(l=>l.tipo===t).reduce((s,l)=>s+diasGozados(l,anio),0));
     const total = ls.reduce((s,l)=>s+diasGozados(l,anio),0);
     const prog = ls.reduce((s,l)=>s+diasProgramados(l,anio),0);
     if(!ag && total===0 && prog===0) return;
-    hay = true;
-    html += `<tr><td>${esc(a)}</td>${porTipo.map(n=>`<td class="n">${n}</td>`).join("")}<td class="n"><strong>${total}</strong></td><td class="n">${prog}</td></tr>`;
+    filas.push({ a, porTipo, total, prog });
+  });
+  // Escala de color por columna: menos días = verde, más días = rojo (sin color si todos son iguales)
+  const escala = (vals, clase) => {
+    const mn = Math.min(...vals), mx = Math.max(...vals);
+    return v => mx === mn ? "" : ` class="${clase}" style="--h:${Math.round(130 * (1 - (v - mn) / (mx - mn)))}"`;
+  };
+  const colT = escala(filas.map(f => f.total), "n tot esc-t"), colP = escala(filas.map(f => f.prog), "n esc-p");
+  const celdaN = n => `<td class="n${n === 0 ? " cero" : ""}">${n}</td>`;
+  let html = `<table><thead><tr><th>Agente</th>${tipos.map(t=>`<th class="n" title="${esc(t)}">${esc(corto(t))}</th>`).join("")}<th class="n tot">Total gozados</th><th class="n">Programados</th></tr></thead><tbody>`;
+  filas.forEach(f => {
+    html += `<tr><td>${esc(f.a)}</td>${f.porTipo.map(celdaN).join("")}` +
+      `<td${colT(f.total) || ' class="n tot"'}>${f.total}</td>` +
+      `<td${colP(f.prog) || ' class="n"'}>${f.prog}</td></tr>`;
   });
   html += "</tbody></table>";
-  $("resumen").innerHTML = hay ? html : `<div class="empty">No hay licencias registradas para ${anio}.</div>`;
+  $("resumen").innerHTML = filas.length ? html : `<div class="empty">No hay licencias registradas para ${anio}.</div>`;
 }
 
 let ordLista = { campo: "desde", dir: "desc" };
@@ -475,12 +510,30 @@ let diaSel = hoyISO();
 const colorTipo = t => `hsl(${[...t].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7)},50%,38%)`;
 const iso = (y,m,d) => `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 
+let ordDia = { campo: "agente", dir: "asc" };
+function btnOrdDia(campo, nom){
+  const b = (dir, ico, t) => `<button data-ordd="${campo}" data-dir="${dir}" class="${ordDia.campo===campo && ordDia.dir===dir ? "on" : ""}" aria-label="Ordenar por ${nom} ${t}" title="Ordenar ${t}">${ico}</button>`;
+  return `<span class="ord">${b("asc","▲","ascendente")}${b("desc","▼","descendente")}</span>`;
+}
+function agentesOrdenadosDia(){
+  const alfa = (x,y) => x.localeCompare(y, "es", { sensitivity: "base" });
+  const sg = ordDia.dir === "asc" ? 1 : -1;
+  const todos = [...new Set([...db.agentes, ...db.licencias.map(l=>l.agente)])];
+  return todos.sort((a,b) => {
+    if(ordDia.campo === "agente") return sg * alfa(a,b);
+    const sa = sectorDe(a), sb2 = sectorDe(b);
+    if(!sa && !sb2) return alfa(a,b);
+    if(!sa) return 1;            // los agentes sin sector van siempre al final
+    if(!sb2) return -1;
+    return sg * alfa(sa, sb2) || alfa(a,b);
+  });
+}
 function pintarDia(){
   const [y,m] = ($("fMes").value || hoyISO().slice(0,7)).split("-").map(Number);
   const n = new Date(y, m, 0).getDate(), hoy = hoyISO();
-  const agentes = [...new Set([...db.agentes, ...db.licencias.map(l=>l.agente)])].sort((a,b)=>a.localeCompare(b,"es"));
+  const agentes = agentesOrdenadosDia();
   const usados = new Set();
-  let h = `<table><thead><tr><th>Agente</th>`;
+  let h = `<table><thead><tr><th>Agente${btnOrdDia("agente","agente")}</th><th>Sector${btnOrdDia("sector","sector")}</th>`;
   for(let d=1; d<=n; d++){
     const f = iso(y,m,d);
     h += `<th class="dia${f===hoy?" hoy":""}${f===diaSel?" sel":""}" data-f="${f}" title="${fmt(f)}">${d}<br>${DIAS_SEM[new Date(y,m-1,d).getDay()]}</th>`;
@@ -488,7 +541,7 @@ function pintarDia(){
   h += `</tr></thead><tbody>`;
   agentes.forEach(a => {
     const ls = db.licencias.filter(l => l.agente===a);
-    h += `<tr><td>${esc(a)}</td>`;
+    h += `<tr><td title="${esc(a)}">${esc(a)}</td><td class="${sectorDe(a) ? "" : "sinsec"}" title="${esc(sectorDe(a))}">${sectorDe(a) ? esc(sectorDe(a)) : "—"}</td>`;
     for(let d=1; d<=n; d++){
       const f = iso(y,m,d), wd = new Date(y,m-1,d).getDay();
       const l = ls.find(x => f>=x.desde && f<=x.hasta);
@@ -644,15 +697,26 @@ $("btnAgregar").onclick = () => {
   const n = $("fNuevo").value.trim();
   if(!n) return;
   if(db.agentes.some(a=>a.toLowerCase()===n.toLowerCase())) return alert("Ese agente ya está en la nómina.");
-  db.agentes.push(n); $("fNuevo").value=""; guardar(); todo();
+  db.agentes.push(n);
+  const sec = $("fNuevoSector").value.trim(); if(sec) db.sectores[n] = sec;
+  $("fNuevo").value = $("fNuevoSector").value = ""; guardar(); todo();
 };
 $("fNuevo").addEventListener("keydown", e => { if(e.key==="Enter") $("btnAgregar").click(); });
+$("fNuevoSector").addEventListener("keydown", e => { if(e.key==="Enter") $("btnAgregar").click(); });
 
 $("btnLote").onclick = () => {
-  const nuevos = [...new Set($("fLote").value.split("\n").map(s=>s.trim()).filter(Boolean))];
+  const filas = $("fLote").value.split("\n").map(x => x.trim()).filter(Boolean).map(x => {
+    const i = x.search(/[;\t|]/);
+    return i < 0 ? [x, ""] : [x.slice(0,i).trim(), x.slice(i+1).trim()];
+  }).filter(f => f[0]);
+  const vistos = new Set(), nuevos = [];
+  filas.forEach(f => { if(!vistos.has(f[0])){ vistos.add(f[0]); nuevos.push(f); } });
   if(!nuevos.length) return;
   if(!confirm(`Se reemplazará la nómina por ${nuevos.length} agente(s). Las licencias ya cargadas se conservan. ¿Continuar?`)) return;
-  db.agentes = nuevos; $("fLote").value=""; guardar(); todo();
+  const previos = db.sectores || {};
+  db.agentes = nuevos.map(f => f[0]);
+  nuevos.forEach(f => { const sec = f[1] || previos[f[0]] || ""; if(sec) db.sectores[f[0]] = sec; else delete db.sectores[f[0]]; });
+  $("fLote").value = ""; guardar(); todo();
 };
 
 $("btnAgregarTipo").onclick = () => {
@@ -681,11 +745,18 @@ $("chipsTipos").onclick = e => {
 };
 
 $("chips").onclick = e => {
-  const i = e.target.dataset.i; if(i===undefined) return;
-  const a = db.agentes[i];
+  const bt = e.target.closest("button"); if(!bt || bt.dataset.i === undefined) return;
+  const a = db.agentes[+bt.dataset.i];
+  if(bt.classList.contains("edit")){
+    const nuevo = prompt(`Sector de ${a} (vacío para quitarlo):`, sectorDe(a));
+    if(nuevo === null) return;
+    const v = nuevo.trim();
+    if(v) db.sectores[a] = v; else delete db.sectores[a];
+    guardar(); todo(); return;
+  }
   const tiene = db.licencias.some(l=>l.agente===a);
   if(!confirm(tiene ? `${a} tiene licencias cargadas. Se quitará de la lista pero sus licencias siguen registradas. ¿Continuar?` : `¿Quitar a ${a} de la nómina?`)) return;
-  db.agentes.splice(i,1); guardar(); todo();
+  db.agentes.splice(+bt.dataset.i,1); if(!tiene) delete db.sectores[a]; guardar(); todo();
 };
 
 $("lista").onclick = e => {
@@ -890,7 +961,11 @@ $("fMes").onchange = () => { if($("fMes").value) pintarDia(); };
 $("btnMesAnt").onclick = () => moverMes(-1);
 $("btnMesSig").onclick = () => moverMes(1);
 $("btnHoy").onclick = () => { $("fMes").value = hoyISO().slice(0,7); diaSel = hoyISO(); pintarDia(); };
-$("grilla").onclick = e => { const th = e.target.closest("th[data-f]"); if(th){ diaSel = th.dataset.f; pintarDia(); } };
+$("grilla").onclick = e => {
+  const bo = e.target.closest("button[data-ordd]");
+  if(bo){ ordDia = { campo: bo.dataset.ordd, dir: bo.dataset.dir }; pintarDia(); return; }
+  const th = e.target.closest("th[data-f]"); if(th){ diaSel = th.dataset.f; pintarDia(); }
+};
 
 // ---- Navegación ----
 function vista(n){
