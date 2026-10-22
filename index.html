@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Registro de licencias</title>
 <style>
-:root{--zebra:#f0f3f2;--lt:80%;--lp:91%;--st:62%;--sp:42%;--bg:#f3f5f4;--card:#fff;--ink:#1d2b2a;--mute:#5d6d6b;--line:#d5dcda;--accent:#1f5f5b;--accent-ink:#fff;--danger:#a63d2f;--soft:#e3eeec;--hoy:#fff1b8;--hoy-h:#e8b923}
-@media (prefers-color-scheme:dark){:root{--zebra:#232d2c;--lt:30%;--lp:23%;--st:48%;--sp:28%;--bg:#141a19;--card:#1c2423;--ink:#e6eeec;--mute:#93a5a2;--line:#2f3b3a;--accent:#5fb3ac;--accent-ink:#0d1716;--danger:#e57f70;--soft:#243231;--hoy:#4a4020;--hoy-h:#e8b923}}
+:root{--fer:rgba(70,110,220,.20);--fer-h:#6f8be0;--zebra:#f0f3f2;--lt:80%;--lp:91%;--st:62%;--sp:42%;--bg:#f3f5f4;--card:#fff;--ink:#1d2b2a;--mute:#5d6d6b;--line:#d5dcda;--accent:#1f5f5b;--accent-ink:#fff;--danger:#a63d2f;--soft:#e3eeec;--hoy:#fff1b8;--hoy-h:#e8b923}
+@media (prefers-color-scheme:dark){:root{--fer:rgba(110,140,240,.28);--fer-h:#4a63b8;--zebra:#232d2c;--lt:30%;--lp:23%;--st:48%;--sp:28%;--bg:#141a19;--card:#1c2423;--ink:#e6eeec;--mute:#93a5a2;--line:#2f3b3a;--accent:#5fb3ac;--accent-ink:#0d1716;--danger:#e57f70;--soft:#243231;--hoy:#4a4020;--hoy-h:#e8b923}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
 header{padding:28px 20px 8px;max-width:1100px;margin:0 auto}
@@ -54,6 +54,9 @@ button.edit{background:transparent;border-color:transparent;color:var(--accent);
 #grilla td.fin{background:rgba(128,128,128,.12)}
 #grilla td.hoy{background:var(--hoy)}
 #grilla th.hoy{background:var(--hoy-h);color:#1d2b2a}
+#grilla td.fer{background:var(--fer)}
+#grilla th.fer{background:var(--fer-h);color:#fff}
+#grilla td.lic.fer{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.28) 0 4px,transparent 4px 8px)!important}
 #grilla th.dia{cursor:pointer}
 #grilla th.sel{outline:2px solid var(--accent);outline-offset:-2px}
 #grilla td.lic{color:#fff;font-weight:600;border-left:1px solid var(--card)}
@@ -62,6 +65,8 @@ button.edit{background:transparent;border-color:transparent;color:var(--accent);
 #grilla tr.ini-sec td.lic.hoy{box-shadow:inset 0 4px 0 var(--ink),inset 0 0 0 2px var(--hoy-h)}
 #grilla tbody tr.ult-sec td{border-bottom:4px solid var(--ink)}
 .leyenda{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:.85rem;color:var(--mute)}
+.feriados-mes{margin-top:8px;font-size:.85rem;color:var(--mute)}
+.feriados-mes i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--fer-h)}
 .leyenda i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .mes{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
 .mes input{width:auto}
@@ -196,6 +201,28 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
     <p class="days">Con ✎ renombrás un tipo (se actualizan también las licencias ya cargadas). Al quitar un tipo, las licencias registradas con ese nombre se conservan.</p>
   </section>
 
+  <section class="full">
+    <h2>Feriados nacionales y provinciales</h2>
+    <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));max-width:760px;align-items:end">
+      <div><label for="fFerFecha">Fecha</label><input type="date" id="fFerFecha"></div>
+      <div><label for="fFerNombre">Nombre del feriado</label><input id="fFerNombre" placeholder="Ej.: Día de la Soberanía Nacional" autocomplete="off"></div>
+      <div><label for="fFerAmbito">Ámbito</label><select id="fFerAmbito"><option>Nacional</option><option>Provincial</option></select></div>
+      <div><button id="btnFerAgregar">Agregar feriado</button></div>
+    </div>
+    <div class="msg" id="msgFer" role="status"></div>
+    <details>
+      <summary>Cargar varios feriados a la vez</summary>
+      <div class="field" style="margin-top:10px">
+        <label for="fFerLote">Un feriado por línea: fecha; nombre; ámbito (Nacional o Provincial; si falta, se toma Nacional). La fecha puede ser dd/mm/aaaa o aaaa-mm-dd. Se agregan a los ya cargados.</label>
+        <textarea id="fFerLote" rows="4" placeholder="25/12/2026; Navidad; Nacional&#10;20/11/2026; Día de la Soberanía Nacional; Nacional&#10;12/12/2026; Fundación de la provincia; Provincial"></textarea>
+      </div>
+      <button class="ghost" id="btnFerLote">Agregar feriados</button>
+    </details>
+    <div class="row" style="max-width:260px;margin-top:14px"><div><label for="fFerAnio">Ver año</label><select id="fFerAnio"></select></div></div>
+    <div class="wrap scroll" id="listaFer" style="max-height:300px"></div>
+    <p class="days">Los feriados se sombrean en la pestaña “Licencias por día” con un color distinto al de sábados y domingos.</p>
+  </section>
+
 </div>
 
 <div class="vista" id="v-reg" hidden>
@@ -224,6 +251,7 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
     <div class="det" id="detalleDia" aria-live="polite"></div>
     <div class="wrap" id="grilla"></div>
     <div class="leyenda" id="leyenda"></div>
+    <div class="feriados-mes" id="feriadosMes"></div>
     <p class="days">El día de hoy está resaltado en amarillo. Tocá el número de un día para ver quiénes están de licencia. Los fines de semana se muestran en gris.</p>
   </section>
 </div>
@@ -408,6 +436,8 @@ function normalizarDB(){
   if(!Array.isArray(db.tipos)) db.tipos = [...TIPOS_INICIALES];
   if(!db.saldosIni || typeof db.saldosIni !== "object") db.saldosIni = {};
   if(!db.sectores || typeof db.sectores !== "object" || Array.isArray(db.sectores)) db.sectores = {};
+  if(!Array.isArray(db.feriados)) db.feriados = [];
+  db.feriados = db.feriados.filter(f => f && /^\d{4}-\d\d-\d\d$/.test(f.fecha)).map(f => ({ id: f.id || (Date.now() + Math.random().toString(36).slice(2,6)), fecha: f.fecha, nombre: String(f.nombre || "Feriado"), ambito: f.ambito === "Provincial" ? "Provincial" : "Nacional" }));
   // Los tipos que llevan saldo deben existir
   REQUERIDOS.forEach(r => { if(!db.tipos.some(t => codigo(t) === codigo(r))) db.tipos.push(r); });
 }
@@ -518,6 +548,42 @@ function pintarLista(){
 }
 
 const DIAS_SEM = ["D","L","M","M","J","V","S"];
+// ---- Feriados ----
+function feriadosPorFecha(){
+  const m = {};
+  (db.feriados || []).forEach(f => { (m[f.fecha] = m[f.fecha] || []).push(f); });
+  return m;
+}
+const textoFeriado = lista => lista.map(f => `${f.nombre} (${f.ambito})`).join(" / ");
+function parseFechaFer(t){
+  t = String(t).trim();
+  let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/), d, mo, y;
+  if(m){ y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else if((m = t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/))){ d = +m[1]; mo = +m[2]; y = +m[3]; if(y < 100) y += 2000; }
+  else return null;
+  const dt = new Date(y, mo - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d ? iso(y, mo, d) : null;
+}
+function agregarFeriado(fecha, nombre, ambito){
+  nombre = nombre.trim() || "Feriado";
+  if(db.feriados.some(f => f.fecha === fecha && f.ambito === ambito && f.nombre.toLowerCase() === nombre.toLowerCase())) return false;
+  db.feriados.push({ id: Date.now() + Math.random().toString(36).slice(2,6), fecha, nombre, ambito });
+  return true;
+}
+function pintarFeriados(){
+  const anios = new Set([new Date().getFullYear()]);
+  db.feriados.forEach(f => anios.add(+f.fecha.slice(0,4)));
+  const lista = [...anios].sort((a,b) => b - a);
+  const sel = $("fFerAnio").value || String(new Date().getFullYear());
+  $("fFerAnio").innerHTML = lista.map(a => `<option>${a}</option>`).join("");
+  $("fFerAnio").value = lista.map(String).includes(sel) ? sel : String(lista[0]);
+  const anio = $("fFerAnio").value;
+  const fs = db.feriados.filter(f => f.fecha.startsWith(anio + "-")).sort((a,b) => a.fecha.localeCompare(b.fecha) || a.nombre.localeCompare(b.nombre, "es"));
+  $("listaFer").innerHTML = fs.length
+    ? `<table><thead><tr><th>Fecha</th><th>Día</th><th>Feriado</th><th>Ámbito</th><th></th></tr></thead><tbody>` +
+      fs.map(f => `<tr><td>${fmt(f.fecha)}</td><td>${NOMBRE_DIA[toDate(f.fecha).getDay()]}</td><td>${esc(f.nombre)}</td><td>${f.ambito}</td><td><button class="del" data-fer="${f.id}" aria-label="Quitar feriado ${esc(f.nombre)}">Quitar</button></td></tr>`).join("") + `</tbody></table>`
+    : `<div class="empty">No hay feriados cargados para ${anio}. Agregalos con el formulario de arriba.</div>`;
+}
 const NOMBRE_DIA = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
 let diaSel = hoyISO();
 const colorTipo = t => `hsl(${[...t].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7)},50%,38%)`;
@@ -546,10 +612,12 @@ function pintarDia(){
   const n = new Date(y, m, 0).getDate(), hoy = hoyISO();
   const agentes = agentesOrdenadosDia();
   const usados = new Set();
+  const feriados = feriadosPorFecha();
   let h = `<table><thead><tr><th>Agente${btnOrdDia("agente","agente")}</th><th>Sector${btnOrdDia("sector","sector")}</th>`;
   for(let d=1; d<=n; d++){
     const f = iso(y,m,d);
-    h += `<th class="dia${f===hoy?" hoy":""}${f===diaSel?" sel":""}" data-f="${f}" title="${fmt(f)}">${d}<br>${DIAS_SEM[new Date(y,m-1,d).getDay()]}</th>`;
+    const fer = feriados[f];
+    h += `<th class="dia${f===hoy?" hoy":""}${f===diaSel?" sel":""}${fer?" fer":""}" data-f="${f}" title="${fmt(f)}${fer ? " · Feriado: " + esc(textoFeriado(fer)) : ""}">${d}<br>${DIAS_SEM[new Date(y,m-1,d).getDay()]}</th>`;
   }
   h += `</tr></thead><tbody>`;
   let secAnt = null;
@@ -564,7 +632,7 @@ function pintarDia(){
     for(let d=1; d<=n; d++){
       const f = iso(y,m,d), wd = new Date(y,m-1,d).getDay();
       const l = ls.find(x => f>=x.desde && f<=x.hasta);
-      const cls = [wd===0||wd===6?"fin":"", f===hoy?"hoy":""].join(" ");
+      const cls = [feriados[f] ? "fer" : (wd===0||wd===6 ? "fin" : ""), f===hoy?"hoy":""].join(" ");
       if(l){
         usados.add(l.tipo);
         h += `<td class="lic ${cls}" style="background:${colorTipo(l.tipo)}" title="${esc(a)}: ${esc(l.tipo)} (${fmt(l.desde)} al ${fmt(l.hasta)})">${esc(abrev(l.tipo))}</td>`;
@@ -574,6 +642,10 @@ function pintarDia(){
   });
   h += `</tbody></table>`;
   $("grilla").innerHTML = agentes.length ? h : `<div class="empty">No hay agentes cargados. Agregalos en Configuración.</div>`;
+  const delMes = Object.keys(feriados).filter(f => f.startsWith(`${y}-${String(m).padStart(2,"0")}-`)).sort();
+  $("feriadosMes").innerHTML = delMes.length
+    ? `<i></i>Feriados del mes: ` + delMes.map(f => `${f.slice(8)}/${f.slice(5,7)} ${esc(textoFeriado(feriados[f]))}`).join(" · ")
+    : "";
   $("leyenda").innerHTML = [...usados].map(t => `<span><i style="background:${colorTipo(t)}"></i>${esc(abrev(t))} = ${esc(t)}</span>`).join("");
 
   const en = db.licencias.filter(l => diaSel>=l.desde && diaSel<=l.hasta).sort((a,b)=>a.agente.localeCompare(b.agente,"es"));
@@ -583,7 +655,7 @@ function pintarDia(){
     en.map(l => `${esc(l.agente)} — ${esc(l.tipo)}, del ${fmt(l.desde)} al ${fmt(l.hasta)}`).join("<br>");
 }
 
-function todo(){ pintarSaldos(); pintarIni(); pintarDia(); pintarAgentes(); pintarTipos(); pintarAnios(); pintarResumen(); pintarLista(); }
+function todo(){ pintarFeriados(); pintarSaldos(); pintarIni(); pintarDia(); pintarAgentes(); pintarTipos(); pintarAnios(); pintarResumen(); pintarLista(); }
 
 function actualizarDias(){
   const d=$("fDesde").value, h=$("fHasta").value;
@@ -736,6 +808,38 @@ $("btnLote").onclick = () => {
   db.agentes = nuevos.map(f => f[0]);
   nuevos.forEach(f => { const sec = f[1] || previos[f[0]] || ""; if(sec) db.sectores[f[0]] = sec; else delete db.sectores[f[0]]; });
   $("fLote").value = ""; guardar(); todo();
+};
+
+$("btnFerAgregar").onclick = () => {
+  const m = $("msgFer"), fecha = $("fFerFecha").value;
+  if(!fecha){ m.textContent = "Elegí la fecha del feriado."; m.className = "msg"; return; }
+  if(!$("fFerNombre").value.trim()){ m.textContent = "Escribí el nombre del feriado."; m.className = "msg"; return; }
+  if(!agregarFeriado(fecha, $("fFerNombre").value, $("fFerAmbito").value)){ m.textContent = "Ese feriado ya está cargado."; m.className = "msg"; return; }
+  $("fFerAnio").value = fecha.slice(0,4);
+  $("fFerNombre").value = ""; $("fFerFecha").value = "";
+  m.textContent = "Feriado agregado."; m.className = "msg ok";
+  guardar(); todo();
+};
+$("fFerNombre").addEventListener("keydown", e => { if(e.key === "Enter") $("btnFerAgregar").click(); });
+$("btnFerLote").onclick = () => {
+  const m = $("msgFer"); let ok = 0, dup = 0; const malas = [];
+  $("fFerLote").value.split("\n").map(x => x.trim()).filter(Boolean).forEach(linea => {
+    const p = linea.split(/[;\t|]/).map(x => x.trim());
+    const fecha = parseFechaFer(p[0]);
+    if(!fecha){ malas.push(linea); return; }
+    const amb = /^prov/i.test(p[2] || "") ? "Provincial" : "Nacional";
+    if(agregarFeriado(fecha, p[1] || "", amb)) ok++; else dup++;
+  });
+  m.textContent = `${ok} feriado(s) agregado(s)` + (dup ? `, ${dup} ya estaban cargados` : "") + (malas.length ? `. Revisá estas líneas, la fecha no se entiende: ${malas.join(" | ")}` : ".");
+  m.className = "msg" + (malas.length ? "" : " ok");
+  if(ok){ $("fFerLote").value = malas.join("\n"); guardar(); todo(); }
+};
+$("fFerAnio").onchange = pintarFeriados;
+$("listaFer").onclick = e => {
+  const b = e.target.closest("button[data-fer]"); if(!b) return;
+  const f = db.feriados.find(x => x.id === b.dataset.fer); if(!f) return;
+  if(!confirm(`¿Quitar el feriado “${f.nombre}” del ${fmt(f.fecha)}?`)) return;
+  db.feriados = db.feriados.filter(x => x.id !== f.id); guardar(); todo();
 };
 
 $("btnAgregarTipo").onclick = () => {
