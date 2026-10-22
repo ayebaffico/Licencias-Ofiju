@@ -58,6 +58,9 @@ button.edit{background:transparent;border-color:transparent;color:var(--accent);
 #grilla th.sel{outline:2px solid var(--accent);outline-offset:-2px}
 #grilla td.lic{color:#fff;font-weight:600;border-left:1px solid var(--card)}
 #grilla td.lic.hoy{box-shadow:inset 0 0 0 2px var(--hoy-h)}
+#grilla tr.ini-sec td{box-shadow:inset 0 4px 0 var(--ink)}
+#grilla tr.ini-sec td.lic.hoy{box-shadow:inset 0 4px 0 var(--ink),inset 0 0 0 2px var(--hoy-h)}
+#grilla tbody tr.ult-sec td{border-bottom:4px solid var(--ink)}
 .leyenda{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:.85rem;color:var(--mute)}
 .leyenda i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .mes{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
@@ -113,6 +116,9 @@ th .ord button.on{background:var(--accent);border-color:var(--accent);color:var(
 #resumen th:last-child,#resumen td:last-child{border-right:0}
 #resumen tbody tr:nth-child(even) td{background:rgba(128,128,128,.09)}
 #resumen td.cero{color:var(--mute)}
+#resumen th:first-child,#resumen td:first-child{position:sticky;left:0;z-index:2;background-color:var(--card);min-width:170px;text-align:left;border-right:2px solid var(--line)}
+#resumen tbody tr:nth-child(even) td:first-child{background-image:linear-gradient(rgba(128,128,128,.09),rgba(128,128,128,.09))}
+#resumen thead th:first-child{z-index:5;background-color:var(--soft)}
 #resumen th.tot,#resumen td.tot{border-left:2px solid var(--accent);border-right:2px solid var(--accent)}
 #resumen th.tot{background:var(--accent);color:var(--accent-ink)}
 #resumen td.tot{font-size:1.08rem;font-weight:700}
@@ -219,7 +225,7 @@ window.addEventListener("unhandledrejection", function(e){ errorVisible(e.reason
   <section class="full">
     <h2>Saldos de licencias por agente</h2>
     <p class="days" id="saldoFecha"></p>
-    <div class="wrap" id="saldos"></div>
+    <div class="wrap scroll" id="saldos"></div>
     <p class="days"><strong>Art. 39 - Asuntos personales:</strong> 6 días por año calendario; el remanente se pierde al 31/12.<br>
     <strong>FE - Feria extraordinaria:</strong> 14 días que se habilitan en julio; se descuentan los días de FE y de Item 99 - Feria especial; el remanente se pierde al 31/12.<br>
     <strong>FO - Feria ordinaria:</strong> 31 días por año de licencia, habilitados el 01/01 del año siguiente y con vencimiento el 31/12 del año posterior a su habilitación. Se descuentan los días de FO y de Art. 22 - Feria anual compensatoria, primero del año más antiguo. En amarillo, el saldo que vence este año.</p>
@@ -539,9 +545,15 @@ function pintarDia(){
     h += `<th class="dia${f===hoy?" hoy":""}${f===diaSel?" sel":""}" data-f="${f}" title="${fmt(f)}">${d}<br>${DIAS_SEM[new Date(y,m-1,d).getDay()]}</th>`;
   }
   h += `</tr></thead><tbody>`;
-  agentes.forEach(a => {
+  let secAnt = null;
+  agentes.forEach((a, ix) => {
     const ls = db.licencias.filter(l => l.agente===a);
-    h += `<tr><td title="${esc(a)}">${esc(a)}</td><td class="${sectorDe(a) ? "" : "sinsec"}" title="${esc(sectorDe(a))}">${sectorDe(a) ? esc(sectorDe(a)) : "—"}</td>`;
+    // Al ordenar por sector, una línea gruesa separa un sector del siguiente (el primero no lleva línea)
+    const porSector = ordDia.campo === "sector";
+    const inicio = porSector && ix > 0 && sectorDe(a) !== secAnt;
+    const ultimo = porSector && ix === agentes.length - 1;
+    secAnt = sectorDe(a);
+    h += `<tr${inicio || ultimo ? ` class="${[inicio ? "ini-sec" : "", ultimo ? "ult-sec" : ""].join(" ").trim()}"` : ""}><td title="${esc(a)}">${esc(a)}</td><td class="${sectorDe(a) ? "" : "sinsec"}" title="${esc(sectorDe(a))}">${sectorDe(a) ? esc(sectorDe(a)) : "—"}</td>`;
     for(let d=1; d<=n; d++){
       const f = iso(y,m,d), wd = new Date(y,m-1,d).getDay();
       const l = ls.find(x => f>=x.desde && f<=x.hasta);
